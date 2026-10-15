@@ -69,9 +69,9 @@ npm run dev
 ## 部署到 EdgeOne Makers
 
 1. 准备一个独立的新域名，不要用品牌主域名：体验站点的内容由访客创建，万一域名被拉黑，影响只限于这个域名。平台域名用它的子域名，如 `docs.example.com`，避开根域名的 CNAME 问题。
-2. 在 Makers 导入本项目，设置 `ROOT_DOMAIN`、`ADMIN_PASSWORD`，按需设置 `ADMIN_USERNAME`，然后部署。
+2. 在 Makers 导入本项目并设置 `ROOT_DOMAIN`。只有需要平台管理和长期站点时才配置 `ADMIN_PASSWORD`，`ADMIN_USERNAME` 留空时默认使用 `admin`。
 3. 把 `docs.example.com` 和 `*.docs.example.com` 都绑定到这个项目。泛域名证书要做 DNS 验证。
-4. 打开 `docs.example.com/ops`，用指定子域名建示例站。
+4. 如已启用平台管理，打开 `docs.example.com/ops`，用指定子域名建长期示例站。
 
 体验站点是公开托管访客内容，上线前请和安全合规确认是否需要内容审核。
 

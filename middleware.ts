@@ -2,7 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { isOperator } from "@/lib/operator";
 import { HANDLE_RE } from "@/lib/rules";
 
-export const config = { matcher: ["/((?!_next/|favicon.ico).*)"] };
+// EdgeOne 使用 RE2 处理 matcher，不支持负向前瞻；静态资源在函数内显式跳过。
+export const config = { matcher: ["/:path*"] };
 
 // 本地 edgeone makers dev 的代理会改写 Host，原域名在 X-Forwarded-Host 里
 function getHost(req: NextRequest) {
@@ -13,6 +14,9 @@ function getHost(req: NextRequest) {
 // 平台域名走首页、后台和平台管理页（/ops 需登录）；其他域名改写到 /s/{handle 或域名}
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  if (pathname.startsWith("/_next/") || pathname === "/favicon.ico") {
+    return NextResponse.next();
+  }
   // EdgeOne 在加载 Middleware bundle 后才注入控制台环境变量，因此不能使用
   // 模块初始化阶段计算出的 ROOT_DOMAIN 常量，必须在请求执行时读取。
   const rootDomain = (
