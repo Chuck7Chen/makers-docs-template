@@ -1,0 +1,320 @@
+/* 只扫描源码目录。默认会监听整个项目，本地 Blob 数据（.blob-local）一写入，开发环境就整页热更新 */
+@import "tailwindcss" source(none);
+@import "tw-animate-css";
+@source "../app";
+@source "../components";
+
+/* 后台组件来自 shadcn/ui（components/ui），下面是它的主题。没有暗色模式，dark: 只在 .dark 里生效，不跟随系统 */
+@custom-variant dark (&:is(.dark *));
+
+/* 组件用到的状态变体，摘自 shadcn/tailwind.css，不引入整个 shadcn 包 */
+@custom-variant data-open {
+  &:where([data-state="open"]),
+  &:where([data-open]:not([data-open="false"])) {
+    @slot;
+  }
+}
+@custom-variant data-closed {
+  &:where([data-state="closed"]),
+  &:where([data-closed]:not([data-closed="false"])) {
+    @slot;
+  }
+}
+@custom-variant data-checked {
+  &:where([data-state="checked"]),
+  &:where([data-checked]:not([data-checked="false"])) {
+    @slot;
+  }
+}
+@custom-variant data-disabled {
+  &:where([data-disabled="true"]),
+  &:where([data-disabled]:not([data-disabled="false"])) {
+    @slot;
+  }
+}
+@custom-variant data-horizontal {
+  &:where([data-orientation="horizontal"]) {
+    @slot;
+  }
+}
+@custom-variant data-vertical {
+  &:where([data-orientation="vertical"]) {
+    @slot;
+  }
+}
+
+@theme {
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+    sans-serif;
+  --font-heading: var(--font-sans);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  /* 站点主题色，页面按站点设置写入 --brand 等变量，见 lib/theme.ts */
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-text: var(--brand-text);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: #0052d9;
+  --primary-foreground: #ffffff;
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: #0052d9;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+}
+
+/* 正文排版。阅读页和后台预览共用，预览的 iframe 会带上这份样式 */
+
+.doc {
+  color: #1f2937;
+  font-size: 16px;
+  line-height: 1.75;
+  overflow-wrap: break-word;
+}
+.doc > :first-child {
+  margin-top: 0;
+}
+.doc h2,
+.doc h3,
+.doc h4 {
+  color: #111827;
+  scroll-margin-top: 5rem;
+}
+.doc h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 2.2em 0 0.8em;
+}
+.doc h3 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin: 1.8em 0 0.6em;
+}
+.doc h4 {
+  font-weight: 600;
+  margin: 1.5em 0 0.5em;
+}
+.doc p,
+.doc ul,
+.doc ol,
+.doc table,
+.doc blockquote,
+.doc .code-block {
+  margin: 1em 0;
+}
+.doc ul {
+  list-style: disc;
+  padding-left: 1.5em;
+}
+.doc ol {
+  list-style: decimal;
+  padding-left: 1.5em;
+}
+.doc li + li {
+  margin-top: 0.25em;
+}
+.doc li > ul,
+.doc li > ol {
+  margin: 0.25em 0;
+}
+.doc .contains-task-list {
+  list-style: none;
+  padding-left: 0.25em;
+}
+.doc .task-list-item input {
+  margin-right: 0.5em;
+  vertical-align: middle;
+}
+.doc a {
+  color: var(--brand-text, #0052d9);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.doc strong {
+  color: #111827;
+  font-weight: 600;
+}
+.doc blockquote {
+  border-left: 4px solid #e5e7eb;
+  color: #4b5563;
+  padding: 0.25em 1em;
+}
+.doc hr {
+  border: 0;
+  border-top: 1px solid #e5e7eb;
+  margin: 2em 0;
+}
+.doc img {
+  border-radius: 8px;
+  height: auto;
+  max-width: 100%;
+}
+.doc table {
+  border-collapse: collapse;
+  display: block;
+  font-size: 0.95em;
+  overflow-x: auto;
+}
+.doc th,
+.doc td {
+  border: 1px solid #e5e7eb;
+  padding: 0.5em 0.75em;
+  text-align: left;
+}
+.doc th {
+  background: #f9fafb;
+  font-weight: 600;
+}
+.doc code,
+.doc pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.doc :not(pre) > code {
+  background: #f3f4f6;
+  border-radius: 4px;
+  font-size: 0.875em;
+  padding: 0.15em 0.35em;
+}
+.doc .code-block {
+  position: relative;
+}
+.doc pre {
+  background: #f6f8fa;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 0.875em;
+  line-height: 1.6;
+  overflow-x: auto;
+  padding: 1em;
+}
+.doc .copy-button {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  color: #4b5563;
+  cursor: pointer;
+  font-size: 0.75rem;
+  opacity: 0;
+  padding: 0.2em 0.6em;
+  position: absolute;
+  right: 0.5em;
+  top: 0.5em;
+  transition: opacity 0.15s;
+}
+.doc .code-block:hover .copy-button,
+.doc .copy-button:focus {
+  opacity: 1;
+}
+@media (hover: none) {
+  .doc .copy-button {
+    opacity: 1;
+  }
+}
+.doc .footnotes {
+  border-top: 1px solid #e5e7eb;
+  color: #4b5563;
+  font-size: 0.875em;
+  margin-top: 3em;
+}
+.doc .sr-only {
+  clip: rect(0, 0, 0, 0);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+/* 代码高亮，配色接近 GitHub 浅色主题 */
+
+.doc .hljs-comment,
+.doc .hljs-quote {
+  color: #6a737d;
+  font-style: italic;
+}
+.doc .hljs-keyword,
+.doc .hljs-selector-tag,
+.doc .hljs-literal,
+.doc .hljs-type {
+  color: #d73a49;
+}
+.doc .hljs-string,
+.doc .hljs-regexp,
+.doc .hljs-addition {
+  color: #032f62;
+}
+.doc .hljs-number,
+.doc .hljs-symbol,
+.doc .hljs-bullet,
+.doc .hljs-variable,
+.doc .hljs-template-variable,
+.doc .hljs-attr,
+.doc .hljs-attribute,
+.doc .hljs-property {
+  color: #005cc5;
+}
+.doc .hljs-title,
+.doc .hljs-section,
+.doc .hljs-built_in,
+.doc .hljs-name {
+  color: #6f42c1;
+}
+.doc .hljs-meta {
+  color: #735c0f;
+}
+.doc .hljs-deletion {
+  color: #b31d28;
+}
+.doc .hljs-emphasis {
+  font-style: italic;
+}
+.doc .hljs-strong {
+  font-weight: 700;
+}
