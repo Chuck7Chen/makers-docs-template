@@ -1,6 +1,6 @@
 import { isGroup, pagePath, type NavItem, type NavPage } from "@/lib/nav";
 
-// 当前页的高亮由页面输出的一段样式完成，侧栏本身和具体页面无关，可以整站共用
+// The current-page highlight comes from a style emitted by the page, so the sidebar is page-independent and shared site-wide
 
 function NavLink({ page }: { page: NavPage }) {
   return (

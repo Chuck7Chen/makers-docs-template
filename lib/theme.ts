@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 
-// 站点主题默认使用 TDesign 的腾讯蓝，其余颜色取自 Tailwind 调色板，按明度相近挑选。
-// 主色上的白色图标和文字对比度不低于 4.5:1；文字色用于白底上的链接和侧栏当前页
+// The default theme uses TDesign's Tencent Blue; the others come from the Tailwind palette, picked for similar lightness.
+// White icons and text on the primary color have at least 4.5:1 contrast; the text color is for links and the current sidebar item on white
 export const THEMES = {
   blue: { label: "腾讯蓝", color: "#0052d9", text: "#0052d9" },
   indigo: { label: "靛蓝", color: "#4f46e5", text: "#4338ca" },
@@ -24,12 +24,12 @@ export function isThemeName(value: string): value is ThemeName {
   return Object.hasOwn(THEMES, value);
 }
 
-// 不认识的主题名按默认主题处理，比如改版前存的是任意颜色、没有主题名的站点
+// Unknown theme names fall back to the default, e.g. older sites that stored an arbitrary color instead of a theme name
 export function resolveTheme(name: string): ThemeName {
   return isThemeName(name) ? name : DEFAULT_THEME;
 }
 
-// 主题写成 CSS 变量，对应 globals.css 里的 bg-brand、text-brand-foreground、text-brand-text
+// Themes are written as CSS variables used by bg-brand, text-brand-foreground and text-brand-text in globals.css
 export function brandStyle(name: string) {
   const { color, text } = THEMES[resolveTheme(name)];
   return {

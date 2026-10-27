@@ -1,17 +1,18 @@
 import { randomBytes } from "node:crypto";
-import { revalidateTag } from "next/cache";
 import { createToken, grantSiteAccess, hashToken } from "@/lib/access";
 import { listKeys, readJSON, remove, writeBytes, writeJSON } from "@/lib/blob";
 import { MAX_CLEANUP_PER_RUN, MAX_IMAGE_BYTES, MAX_TEMP_SITES, TEMP_SITE_TTL_MS } from "@/lib/demo";
 import { UserError } from "@/lib/forms";
 import { DEFAULT_ICON } from "@/lib/icons";
+import { invalidateDomainCache, invalidateSiteCache } from "@/lib/invalidation";
 import { extractSearchEntry } from "@/lib/markdown";
 import { flattenNav } from "@/lib/nav";
+import { isReservedHandle, isValidHandle, isValidHost, ROOT_DOMAIN } from "@/lib/rules";
 import { SAMPLE_NAV, SAMPLE_PAGES } from "@/lib/samples";
-import { IMAGE_FILE_RE, isExpired, keys, type PageDoc, type SearchIndex, type SiteConfig } from "@/lib/site";
+import { IMAGE_FILE_RE, isExpired, keys, type DomainMapping, type PageDoc, type SearchIndex, type SiteConfig } from "@/lib/site";
 import { DEFAULT_THEME } from "@/lib/theme";
 
-// 写操作。调用方负责鉴权：站点操作先 requireSiteAccess，运营操作先 requireOperator
+// Write operations. Except for public site creation, callers verify the site's edit token first.
 
 const ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
 const EXPIRY_KEY_RE = /^expiry\/(\d+)_([a-z0-9-]+)$/;
@@ -20,7 +21,7 @@ function randomHandle() {
   return `try-${Array.from(randomBytes(6), (byte) => ALPHABET[byte % ALPHABET.length]).join("")}`;
 }
 
-// 随机 handle 撞上的概率可以忽略，先查再写即可
+// Collisions between random handles are negligible, so check-then-write is enough
 async function pickTempHandle() {
   for (let i = 0; i < 5; i++) {
     const handle = randomHandle();
@@ -29,17 +30,17 @@ async function pickTempHandle() {
   throw new Error("Failed to pick a free handle");
 }
 
-// 不传 handle 就是访客建的临时站点
 export async function createSite(name: string, chosenHandle?: string) {
-  const temporary = !chosenHandle;
-  let handle: string;
-  if (chosenHandle) {
-    if (await readJSON(keys.site(chosenHandle))) throw new UserError("这个子域名已被占用");
-    handle = chosenHandle;
-  } else {
-    await cleanupTempSites();
-    handle = await pickTempHandle();
+  if (chosenHandle && (!isValidHandle(chosenHandle) || isReservedHandle(chosenHandle))) {
+    throw new UserError("域名前缀需为 1 到 32 位小写字母、数字或连字符，不能使用保留名称");
   }
+  if (chosenHandle) {
+    const existing = await readJSON<SiteConfig>(keys.site(chosenHandle));
+    if (existing && !isExpired(existing)) throw new UserError("这个域名前缀已被占用，请换一个");
+    if (existing) await deleteSite(chosenHandle);
+  }
+  await cleanupTempSites();
+  const handle = chosenHandle || (await pickTempHandle());
 
   const now = Date.now();
   const site: SiteConfig = {
@@ -51,9 +52,9 @@ export async function createSite(name: string, chosenHandle?: string) {
     domains: [],
     nav: structuredClone(SAMPLE_NAV),
     createdAt: now,
+    expiresAt: now + TEMP_SITE_TTL_MS,
     version: 1,
   };
-  if (temporary) site.expiresAt = now + TEMP_SITE_TTL_MS;
 
   const token = createToken();
   const index: SearchIndex = {};
@@ -62,7 +63,7 @@ export async function createSite(name: string, chosenHandle?: string) {
     const doc: PageDoc = { markdown, description: "", updatedAt: now };
     return writeJSON(keys.page(handle, slug), doc);
   });
-  // 过期标记先写，中途失败留下的残片也会被清理；site.json 最后写，写完站点才算存在
+  // Write the expiry marker first so leftovers from a failed creation get cleaned up; site.json goes last, and the site exists only once it is written
   await Promise.all([
     ...pageWrites,
     writeJSON(keys.search(handle), index),
@@ -71,12 +72,12 @@ export async function createSite(name: string, chosenHandle?: string) {
   ]);
   await writeJSON(keys.site(handle), site);
 
+  invalidateSiteCache(handle, site.domains, true);
   await grantSiteAccess(site, token);
-  revalidateTag(`site:${handle}`);
   return handle;
 }
 
-// 访客建站时顺带清理：先删过期的，再按到期时间从早到晚删，直到临时站点少于上限
+// Clean up during visitor site creation: delete expired sites first, then the earliest-expiring ones until temporary sites are under the limit
 async function cleanupTempSites() {
   const entries = (await listKeys("expiry/"))
     .map((key) => {
@@ -98,29 +99,89 @@ export async function deleteSite(handle: string, expiryKey?: string) {
     readJSON<SiteConfig>(keys.site(handle)),
     listKeys(keys.siteDir(handle)),
   ]);
-  const domains = site?.domains ?? [];
+  if (expiryKey && site && expiryKey !== keys.expiry(site.expiresAt ?? 0, handle)) {
+    await remove(expiryKey);
+    return;
+  }
   const markers = new Set([expiryKey, site?.expiresAt && keys.expiry(site.expiresAt, handle)]);
-  await Promise.all([
-    ...objects.map(remove),
-    ...domains.map((host) => remove(keys.domain(host))),
-    ...[...markers].filter((key) => typeof key === "string").map(remove),
-  ]);
-  revalidateTag(`site:${handle}`);
-  revalidateTag(`search:${handle}`);
-  for (const host of domains) revalidateTag(`domain:${host}`);
+  try {
+    const results = await Promise.allSettled([
+      ...objects.map(remove),
+      ...(site?.domains ?? []).map((host) => removeOwnedDomain(site!, host)),
+      ...[...markers].filter((key) => typeof key === "string").map(remove),
+    ]);
+    const failure = results.find((result) => result.status === "rejected");
+    if (failure?.status === "rejected") throw failure.reason;
+  } finally {
+    invalidateSiteCache(handle, site?.domains ?? [], true);
+  }
 }
 
-// 改 site.json 统一走这里。version 不为 null 时做并发检查：表单里带的版本号和存储里的不一致就拒绝
+// All site.json updates go through here. When version is not null, reject the write if it doesn't match the stored version
 export async function updateSite(handle: string, version: number | null, mutate: (site: SiteConfig) => void) {
   const site = await readJSON<SiteConfig>(keys.site(handle));
   if (!site || isExpired(site)) throw new UserError("站点不存在或已过期");
   if (version !== null && site.version !== version) {
     throw new UserError("站点已在别处修改，请刷新页面后重试");
   }
+  const domains = [...site.domains];
   mutate(site);
   site.version += 1;
   await writeJSON(keys.site(handle), site);
-  revalidateTag(`site:${handle}`);
+  invalidateSiteCache(handle, [...domains, ...site.domains]);
+  return site;
+}
+
+async function removeOwnedDomain(site: SiteConfig, host: string) {
+  const mapping = await readJSON<DomainMapping>(keys.domain(host));
+  if (mapping?.handle === site.handle && (mapping.siteCreatedAt === undefined || mapping.siteCreatedAt === site.createdAt)) {
+    await remove(keys.domain(host));
+  }
+  invalidateDomainCache(host);
+}
+
+function checkDomain(host: string) {
+  if (!isValidHost(host)) throw new UserError("域名格式不对，例如 docs.example.com，请勿填写协议、端口或路径");
+  if (host === ROOT_DOMAIN || (ROOT_DOMAIN && host.endsWith(`.${ROOT_DOMAIN}`))) {
+    throw new UserError("平台域名下的地址不用登记");
+  }
+}
+
+export async function addSiteDomain(handle: string, version: number, host: string) {
+  checkDomain(host);
+  const site = await readJSON<SiteConfig>(keys.site(handle));
+  if (!site || isExpired(site)) throw new UserError("站点不存在或已过期");
+  if (site.version !== version) throw new UserError("站点已在别处修改，请刷新页面后重试");
+  if (site.domains.includes(host)) throw new UserError("这个域名已登记到当前站点");
+  const existing = await readJSON<DomainMapping>(keys.domain(host));
+  if (existing) {
+    const owner = await readJSON<SiteConfig>(keys.site(existing.handle));
+    if (owner && !isExpired(owner) && (existing.siteCreatedAt === undefined || existing.siteCreatedAt === owner.createdAt)) {
+      throw new UserError("这个域名已被占用，请先在原站点移除");
+    }
+  }
+
+  await writeJSON(keys.domain(host), { handle, siteCreatedAt: site.createdAt } satisfies DomainMapping);
+  let updated: SiteConfig;
+  try {
+    updated = await updateSite(handle, version, (draft) => {
+      draft.domains.push(host);
+    });
+  } catch (error) {
+    await removeOwnedDomain(site, host);
+    throw error;
+  }
+  invalidateDomainCache(host);
+  return updated;
+}
+
+export async function removeSiteDomain(handle: string, version: number, host: string) {
+  checkDomain(host);
+  const site = await updateSite(handle, version, (draft) => {
+    if (!draft.domains.includes(host)) throw new UserError("这个域名不属于当前站点");
+    draft.domains = draft.domains.filter((domain) => domain !== host);
+  });
+  await removeOwnedDomain(site, host);
   return site;
 }
 
@@ -136,7 +197,7 @@ export async function removeSearchEntry(handle: string, slug: string) {
   await writeJSON(keys.search(handle), index);
 }
 
-// 索引和正文分开写，中途失败会不一致，用这个按导航重建
+// The index and content are written separately and can drift after a failure; this rebuilds the index from the nav
 export async function rebuildSearchIndex(site: SiteConfig) {
   const pages = flattenNav(site.nav);
   const docs = await Promise.all(pages.map((page) => readJSON<PageDoc>(keys.page(site.handle, page.slug))));
@@ -152,7 +213,7 @@ function ascii(bytes: Uint8Array, start: number, end: number) {
   return String.fromCharCode(...bytes.subarray(start, end));
 }
 
-// 按文件头判断类型，不信任文件名和浏览器给的 MIME；不收 SVG
+// Detect the type from file magic bytes, not the file name or browser MIME; SVG is rejected
 function detectImageType(bytes: Uint8Array) {
   if (bytes[0] === 0x89 && ascii(bytes, 1, 4) === "PNG") return "png";
   if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "jpg";

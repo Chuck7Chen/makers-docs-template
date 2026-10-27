@@ -19,7 +19,7 @@ export function Icon({ name, size = 20, className }: { name: string; size?: numb
   );
 }
 
-// 站点标识：上传了 logo 用 logo，否则是主题色方块加图标
+// Site mark: the uploaded logo if any, otherwise an icon on a theme-colored square
 export function SiteMark({ icon, logo, size = 28 }: { icon: string; logo?: string; size?: number }) {
   if (logo) {
     return <img src={logo} alt="" width={size} height={size} className="shrink-0 rounded-md object-contain" />;

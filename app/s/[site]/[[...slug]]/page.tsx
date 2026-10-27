@@ -7,17 +7,18 @@ import { getPage, getSearchIndex, resolveSite, siteOrigin } from "@/lib/site";
 
 type Props = { params: Promise<{ site: string; slug?: string[] }> };
 
-// 构建时不生成任何页面，第一次访问时渲染并缓存；内容变化靠 revalidateTag，兜底一天
-export const revalidate = 86400;
+// The full-page cache is generated on first visit with no time-based revalidation; writes invalidate it by tag and internal path.
+export const dynamic = "force-static";
+export const revalidate = false;
 
 export function generateStaticParams() {
   return [];
 }
 
-// 读取都经过带缓存的函数，generateMetadata 和页面各调一次也只读一次 Blob
+// All reads go through cached functions, so generateMetadata and the page together read Blob only once
 async function load(params: Props["params"]) {
   const { site: param, slug: parts = [] } = await params;
-  // Next 会把 /index 规范成 /，首页只有一个地址
+  // Next normalizes /index to /, so the home page has a single URL
   const slug = parts.length ? parts.join("/") : "index";
   if (!isValidSlug(slug)) return null;
 
@@ -36,6 +37,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: slug === "index" ? { absolute: site.name } : navPage.title,
     description: doc.description || excerpt || site.description || undefined,
+    keywords: [...new Set([navPage.title, site.name])],
     alternates: { canonical: siteOrigin(site) + pagePath(slug) },
   };
 }
@@ -77,7 +79,7 @@ export default async function DocPage({ params }: Props) {
 
   return (
     <div className="flex gap-10">
-      {/* 侧栏整站共用，当前页的高亮在这里按 slug 输出 */}
+      {/* The sidebar is shared by the whole site; the current-page highlight is emitted here by slug */}
       <style>{`a[data-slug="${slug}"]{color:var(--brand-text);background:color-mix(in srgb,var(--brand) 10%,transparent);font-weight:600}`}</style>
 
       <article className="min-w-0 flex-1 py-10">

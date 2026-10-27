@@ -18,7 +18,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Spinner } from "@/components/ui/spinner";
 
-// pos 是分组在顶层导航里的位置，对应 NavOp 的 target
+// pos is the group's position in the top-level nav, matching NavOp's target
 export type GroupOption = { pos: string; title: string };
 
 type DialogProps = {
@@ -28,7 +28,7 @@ type DialogProps = {
   version: number;
 };
 
-// 新建页面成功时 Action 直接跳转到编辑器，没有返回值
+// On success the create-page Action redirects to the editor and returns nothing
 type Send = (formData: FormData) => Promise<FormState | undefined>;
 
 function FormDialog({
@@ -54,7 +54,7 @@ function FormDialog({
     onOpenChange(next);
   }
 
-  // 不用 form action：React 会在 action 结束后重置表单，出错时填好的内容就没了
+  // Not using a form action: React resets the form after the action finishes, losing the input on error
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);

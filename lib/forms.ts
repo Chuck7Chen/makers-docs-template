@@ -1,4 +1,4 @@
-// 可以直接展示给用户的错误，其他错误只显示通用提示
+// Errors safe to show to users; anything else shows a generic message
 export class UserError extends Error {}
 
 export function messageOf(error: unknown) {

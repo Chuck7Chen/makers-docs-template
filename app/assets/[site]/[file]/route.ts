@@ -2,7 +2,7 @@ import { readBytes } from "@/lib/blob";
 import { isValidHandle } from "@/lib/rules";
 import { IMAGE_CONTENT_TYPES, IMAGE_FILE_RE, keys } from "@/lib/site";
 
-// 文件名随机且不会被覆盖，可以让浏览器和 CDN 长期缓存
+// File names are random and never overwritten, so browsers and the CDN can cache them indefinitely
 export async function GET(_request: Request, { params }: { params: Promise<{ site: string; file: string }> }) {
   const { site, file } = await params;
   const match = IMAGE_FILE_RE.exec(file);

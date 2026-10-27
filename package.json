@@ -4,9 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/patch-next-isr.mjs && next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node --test tests/*.test.mjs",
+    "test:isr": "node tests/isr-integration.mjs"
   },
   "dependencies": {
     "@edgeone/pages-blob": "^0.0.18",

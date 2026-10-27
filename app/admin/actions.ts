@@ -7,10 +7,13 @@ import { remove, writeJSON } from "@/lib/blob";
 import { MAX_PAGE_BYTES, MAX_PAGES_PER_TEMP_SITE } from "@/lib/demo";
 import { field, messageOf, UserError } from "@/lib/forms";
 import { isIconName } from "@/lib/icons";
+import { invalidatePageCache } from "@/lib/invalidation";
 import {
+  addSiteDomain,
   createSite,
   deleteSite,
   rebuildSearchIndex,
+  removeSiteDomain,
   removeImage,
   removeSearchEntry,
   storeImage,
@@ -23,10 +26,11 @@ import { isValidDescription, isValidName, isValidSlug, isValidTitle } from "@/li
 import { isTemporary, keys, type PageDoc, type SiteConfig } from "@/lib/site";
 import { isThemeName } from "@/lib/theme";
 
-// 每个 Action 都是公开端点，开头先校验编辑令牌
+// Every Action is a public endpoint, so it checks the edit token first
 
 export type FormState = { error?: string };
 export type SaveState = { error?: string; savedAt?: number; version: number };
+export type SettingsResult = { error?: string; message?: string; site?: SiteConfig };
 
 function withError(path: string, error?: string) {
   return error ? `${path}?error=${encodeURIComponent(error)}` : path;
@@ -41,21 +45,22 @@ function checkPageSize(site: SiteConfig, markdown: string) {
 export async function createSiteAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const name = field(formData, "name");
   const english = field(formData, "language") === "en";
+  const chosenHandle = field(formData, "handle").toLowerCase();
   if (!isValidName(name)) return { error: english ? "Site name must be 1 to 40 characters." : "站点名称需要 1 到 40 个字" };
   let handle: string;
   try {
-    handle = await createSite(name);
+    handle = await createSite(name, chosenHandle || undefined);
   } catch (error) {
     return { error: messageOf(error) };
   }
   redirect(`/admin/${handle}`);
 }
 
-// 导航
+// Navigation
 
 const NAV_OPS = new Set(["rename", "up", "down", "delete", "move", "add-group"]);
 
-// 参数来自客户端，只取用得到的字段，不是字符串的按空字符串处理
+// Arguments come from the client: only read the fields we need and treat non-strings as empty strings
 function parseNavOp(input: unknown): NavOp {
   const value = typeof input === "object" && input !== null ? (input as Record<string, unknown>) : {};
   const text = (key: string) => {
@@ -73,19 +78,23 @@ export async function navAction(handle: string, version: number, input: NavOp): 
   try {
     const op = parseNavOp(input);
     let removed = undefined as NavItem | undefined;
-    await updateSite(handle, Number(version), (site) => {
+    const updated = await updateSite(handle, Number(version), (site) => {
       removed = applyNavOp(site.nav, op);
     });
     if (removed && !isGroup(removed)) {
       const { slug } = removed;
-      await Promise.all([remove(keys.page(handle, slug)), removeSearchEntry(handle, slug)]);
-      revalidateTag(`page:${handle}:${slug}`);
-      revalidateTag(`search:${handle}`);
+      try {
+        const results = await Promise.allSettled([remove(keys.page(handle, slug)), removeSearchEntry(handle, slug)]);
+        const failure = results.find((result) => result.status === "rejected");
+        if (failure?.status === "rejected") throw failure.reason;
+      } finally {
+        invalidatePageCache(handle, slug, updated.domains);
+      }
     }
   } catch (e) {
     error = messageOf(e);
   }
-  // 失败多半是站点在别处改过，也刷新一次，页面拿到最新的导航和版本号
+  // A failure usually means the site was changed elsewhere; revalidate anyway so the page gets the latest nav and version
   revalidatePath(`/admin/${handle}`);
   return { error };
 }
@@ -107,24 +116,26 @@ export async function createPageAction(formData: FormData): Promise<FormState> {
       throw new UserError(`体验站点最多 ${MAX_PAGES_PER_TEMP_SITE} 页`);
     }
 
-    // 先写正文再改导航，导航里的页面总有正文
+    // Write the content before updating the nav, so every page in the nav always has content
     const markdown = "在这里开始写作。\n";
     const doc: PageDoc = { markdown, description: "", updatedAt: Date.now() };
     await writeJSON(keys.page(handle, slug), doc);
-    await updateSite(handle, Number(field(formData, "version")), (draft) => {
-      const target = findNavGroup(draft.nav, group);
-      (target ? target.pages : draft.nav).push({ title, slug });
-    });
-    await updateSearchEntry(handle, slug, markdown);
-    revalidateTag(`page:${handle}:${slug}`);
-    revalidateTag(`search:${handle}`);
+    try {
+      await updateSite(handle, Number(field(formData, "version")), (draft) => {
+        const target = findNavGroup(draft.nav, group);
+        (target ? target.pages : draft.nav).push({ title, slug });
+      });
+      await updateSearchEntry(handle, slug, markdown);
+    } finally {
+      invalidatePageCache(handle, slug, site.domains);
+    }
   } catch (e) {
     return { error: messageOf(e) };
   }
   redirect(`/admin/${handle}/edit/${slug}`);
 }
 
-// 编辑器
+// Editor
 
 export async function savePageAction(prev: SaveState, formData: FormData): Promise<SaveState> {
   const handle = field(formData, "handle");
@@ -139,7 +150,7 @@ export async function savePageAction(prev: SaveState, formData: FormData): Promi
     if (!isValidTitle(title)) throw new UserError("标题需要 1 到 60 个字");
     if (!isValidDescription(description)) throw new UserError("简介最多 200 个字");
     checkPageSize(site, markdown);
-    // 标题存在导航里，改了才需要动 site.json；先查版本，冲突时正文也不写
+    // Titles live in the nav, so site.json is only touched when the title changes; check the version first and skip the content write on conflict
     const version = Number(field(formData, "version"));
     const titleChanged = title !== page.title;
     if (titleChanged && version !== site.version) {
@@ -148,19 +159,20 @@ export async function savePageAction(prev: SaveState, formData: FormData): Promi
 
     const doc: PageDoc = { markdown, description, updatedAt: Date.now() };
     await writeJSON(keys.page(handle, slug), doc);
-    await updateSearchEntry(handle, slug, markdown);
-    revalidateTag(`page:${handle}:${slug}`);
-    revalidateTag(`search:${handle}`);
-
-    let nextVersion = site.version;
-    if (titleChanged) {
-      const updated = await updateSite(handle, version, (draft) => {
-        const target = findNavPage(draft.nav, slug);
-        if (target) target.title = title;
-      });
-      nextVersion = updated.version;
+    try {
+      await updateSearchEntry(handle, slug, markdown);
+      let nextVersion = site.version;
+      if (titleChanged) {
+        const updated = await updateSite(handle, version, (draft) => {
+          const target = findNavPage(draft.nav, slug);
+          if (target) target.title = title;
+        });
+        nextVersion = updated.version;
+      }
+      return { savedAt: Date.now(), version: nextVersion };
+    } finally {
+      invalidatePageCache(handle, slug, site.domains);
     }
-    return { savedAt: Date.now(), version: nextVersion };
   } catch (e) {
     return { ...prev, error: messageOf(e), savedAt: undefined };
   }
@@ -188,11 +200,11 @@ export async function uploadImageAction(handle: string, formData: FormData): Pro
   }
 }
 
-// 设置
+// Settings
 
-export async function appearanceAction(formData: FormData) {
+export async function appearanceAction(formData: FormData): Promise<SettingsResult> {
   const handle = field(formData, "handle");
-  let error: string | undefined;
+  let updated: SiteConfig | undefined;
   try {
     const site = await requireEditableSite(handle);
     const name = field(formData, "name");
@@ -213,28 +225,51 @@ export async function appearanceAction(formData: FormData) {
       logo = undefined;
     }
 
-    await updateSite(handle, Number(field(formData, "version")), (draft) => {
+    updated = await updateSite(handle, Number(field(formData, "version")), (draft) => {
       Object.assign(draft, { name, description, icon, theme });
       if (logo) draft.logo = logo;
       else delete draft.logo;
     });
     if (site.logo && site.logo !== logo) await removeImage(handle, site.logo);
+    return { site: updated, message: "外观已保存" };
   } catch (e) {
-    error = messageOf(e);
+    return { error: messageOf(e), site: updated };
   }
-  redirect(error ? withError(`/admin/${handle}/settings`, error) : `/admin/${handle}/settings?saved=1`);
 }
 
-export async function rebuildSearchAction(formData: FormData) {
+export async function rebuildSearchAction(formData: FormData): Promise<SettingsResult> {
   const handle = field(formData, "handle");
-  let error: string | undefined;
   try {
     await rebuildSearchIndex(await requireEditableSite(handle));
     revalidateTag(`search:${handle}`);
+    return { message: "搜索索引已重建" };
   } catch (e) {
-    error = messageOf(e);
+    return { error: messageOf(e) };
   }
-  redirect(error ? withError(`/admin/${handle}/settings`, error) : `/admin/${handle}/settings?rebuilt=1`);
+}
+
+export async function addDomainAction(formData: FormData): Promise<SettingsResult> {
+  const handle = field(formData, "handle");
+  try {
+    await requireEditableSite(handle);
+    const host = field(formData, "host").toLowerCase().replace(/\.$/, "");
+    const site = await addSiteDomain(handle, Number(field(formData, "version")), host);
+    return { site, message: "自定义域名已登记" };
+  } catch (e) {
+    return { error: messageOf(e) };
+  }
+}
+
+export async function removeDomainAction(formData: FormData): Promise<SettingsResult> {
+  const handle = field(formData, "handle");
+  try {
+    await requireEditableSite(handle);
+    const host = field(formData, "host").toLowerCase().replace(/\.$/, "");
+    const site = await removeSiteDomain(handle, Number(field(formData, "version")), host);
+    return { site, message: "自定义域名已移除" };
+  } catch (e) {
+    return { error: messageOf(e) };
+  }
 }
 
 export async function deleteSiteAction(formData: FormData) {

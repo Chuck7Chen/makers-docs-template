@@ -15,10 +15,12 @@ export type SiteConfig = {
   domains: string[];
   nav: NavItem[];
   createdAt: number;
-  // 只有访客建的临时站点有
+  // New sites are 24-hour demo sites; optional fields keep existing long-lived site data compatible
   expiresAt?: number;
   version: number;
 };
+
+export type DomainMapping = { handle: string; siteCreatedAt?: number };
 
 export type PageDoc = { markdown: string; description: string; updatedAt: number };
 
@@ -36,7 +38,7 @@ export const keys = {
   expiry: (expiresAt: number, handle: string) => `expiry/${expiresAt}_${handle}`,
 };
 
-// 图片文件名是 24 位随机十六进制加扩展名，扩展名由上传时的文件头决定
+// Image file names are 24 random hex characters plus an extension determined by the file magic bytes at upload
 export const IMAGE_FILE_RE = /^[a-f0-9]{24}\.(png|jpg|gif|webp)$/;
 export const IMAGE_CONTENT_TYPES: Record<string, string> = {
   png: "image/png",
@@ -59,12 +61,12 @@ export function formatRemaining(expiresAt: number) {
   return hours > 0 ? `${hours} 小时 ${minutes % 60} 分钟` : `${minutes} 分钟`;
 }
 
-// 站点的正式地址，用于 sitemap 和 canonical；登记了自有域名就用第一个
+// The site's canonical origin for sitemap and canonical links; the first custom domain if one is registered
 export function siteOrigin(site: SiteConfig) {
   return `https://${site.domains[0] ?? `${site.handle}.${ROOT_DOMAIN}`}`;
 }
 
-// 后台里“查看站点”的地址，本地开发时带上端口、用 http
+// URL for "View site" in the admin; uses http and the port in local dev
 export function subdomainOrigin(handle: string, requestHost: string) {
   const port = requestHost.match(/:\d+$/)?.[0] ?? "";
   return `${port ? "http" : "https"}://${handle}.${ROOT_DOMAIN}${port}`;
@@ -76,12 +78,12 @@ export async function requestHost() {
   return forwarded ?? all.get("host") ?? "";
 }
 
-// 后台和 Server Action 直接读 Blob，同一次请求内去重
+// The admin and Server Actions read Blob directly, deduplicated within a request
 export const loadSite = cache((handle: string) => readJSON<SiteConfig>(keys.site(handle)));
 
-// 阅读端的读取都带缓存标签，写入时按标签失效，兜底一天
+// Reader data has no time-based revalidation; writes must invalidate the matching tags and page paths.
 
-const REVALIDATE = 86400;
+const REVALIDATE = false;
 
 const getSite = cache((handle: string) =>
   unstable_cache(() => readJSON<SiteConfig>(keys.site(handle)), ["site", handle], {
@@ -90,9 +92,9 @@ const getSite = cache((handle: string) =>
   })(),
 );
 
-const getDomainHandle = cache((host: string) =>
+const getDomainMapping = cache((host: string) =>
   unstable_cache(
-    async () => (await readJSON<{ handle: string }>(keys.domain(host)))?.handle ?? null,
+    () => readJSON<DomainMapping>(keys.domain(host)),
     ["domain", host],
     { tags: [`domain:${host}`], revalidate: REVALIDATE },
   )(),
@@ -100,7 +102,7 @@ const getDomainHandle = cache((host: string) =>
 
 export const getPage = cache((handle: string, slug: string) =>
   unstable_cache(() => readJSON<PageDoc>(keys.page(handle, slug)), ["page", handle, slug], {
-    tags: [`page:${handle}:${slug}`],
+    tags: [`page:${handle}:${slug}`, `content:${handle}`],
     revalidate: REVALIDATE,
   })(),
 );
@@ -109,17 +111,21 @@ export const getSearchIndex = cache((handle: string) =>
   unstable_cache(
     async () => (await readJSON<SearchIndex>(keys.search(handle))) ?? {},
     ["search", handle],
-    { tags: [`search:${handle}`], revalidate: REVALIDATE },
+    { tags: [`search:${handle}`, `content:${handle}`], revalidate: REVALIDATE },
   )(),
 );
 
-// 路由参数是 handle 或者自有域名（带点），过期的临时站点按不存在处理
+// The route param is a handle or a custom domain (contains a dot); expired temporary sites are treated as missing
 export const resolveSite = cache(async (site: string) => {
   const isDomain = site.includes(".");
   if (isDomain && !isValidHost(site)) return null;
-  const handle = isDomain ? await getDomainHandle(site) : site;
+  const mapping = isDomain ? await getDomainMapping(site) : null;
+  const handle = isDomain ? mapping?.handle : site;
   if (!handle || !isValidHandle(handle)) return null;
   const config = await getSite(handle);
   if (!config || isExpired(config)) return null;
+  if (isDomain && (!config.domains.includes(site) || (mapping?.siteCreatedAt !== undefined && mapping.siteCreatedAt !== config.createdAt))) {
+    return null;
+  }
   return config;
 });

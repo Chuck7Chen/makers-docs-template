@@ -1,6 +1,6 @@
-// 中间件也会引用这个文件，不能依赖 Node API
+// Middleware imports this file too, so it must not depend on Node APIs
 
-// 本地开发没配置时用 localhost，直接 npm run dev 就能用 {handle}.localhost 访问站点
+// Defaults to localhost in local dev, so plain npm run dev serves sites at {handle}.localhost
 export const ROOT_DOMAIN = (
   process.env.ROOT_DOMAIN || (process.env.NODE_ENV === "development" ? "localhost" : "")
 ).toLowerCase();

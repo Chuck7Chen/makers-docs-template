@@ -8,7 +8,7 @@ type Result = { url: string; title: string; snippet: string; score: number };
 
 let indexPromise: Promise<Entry[]> | null = null;
 
-// 第一次打开搜索时才下载索引，同一页面只下载一次
+// Download the index the first time search opens, once per page
 function loadIndex() {
   indexPromise ??= fetch("/search.json")
     .then((response) => (response.ok ? response.json() : { pages: [] }))
@@ -26,7 +26,7 @@ function snippetAround(text: string, at: number, length: number) {
   return `${start > 0 ? "…" : ""}${text.slice(start, end)}${end < text.length ? "…" : ""}`;
 }
 
-// 标题命中排最前，其次是小标题，最后是正文
+// Rank title matches first, then headings, then body text
 function search(entries: Entry[], query: string) {
   const q = query.trim().toLowerCase();
   if (!q) return [];
@@ -113,7 +113,7 @@ export function Search() {
         <kbd className="hidden font-sans text-xs text-gray-400 sm:inline">⌘K</kbd>
       </button>
 
-      {/* 顶栏有 backdrop-blur，里面的 fixed 元素以顶栏为参照，只能盖住顶栏，所以挂到 body 下 */}
+      {/* The header uses backdrop-blur, which makes it the containing block for fixed children, so the dialog is portaled to body */}
       {open
         ? createPortal(
             <div

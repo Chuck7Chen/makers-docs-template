@@ -1,7 +1,7 @@
 import { UserError } from "@/lib/forms";
 import { isValidTitle } from "@/lib/rules";
 
-// 后台的客户端组件也会引用这个文件，不能依赖服务端 API
+// Admin client components import this file too, so it must not depend on server APIs
 
 export type NavPage = { title: string; slug: string };
 export type NavGroup = { title: string; pages: NavPage[] };
@@ -23,7 +23,7 @@ export function pagePath(slug: string) {
   return slug === "index" ? "/" : `/${slug}`;
 }
 
-// pos 是导航项的位置：顶层是 "2"，分组里的页面是 "2.0"。target 是分组的位置，空字符串表示顶层
+// pos is a nav item's position: "2" at the top level, "2.0" for a page in a group. target is a group's position; an empty string means the top level
 export type NavOp =
   | { op: "rename"; pos: string; title: string }
   | { op: "up" | "down" | "delete"; pos: string }
@@ -47,7 +47,7 @@ export function findNavGroup(nav: NavItem[], target: string) {
   return group;
 }
 
-// 原地修改导航，删除时返回被删的项。服务端保存前调用；后台页面也用它先改好显示，不等保存结果
+// Mutates the nav in place and returns the removed item on delete. Called by the server before saving; the admin UI also uses it to update optimistically
 export function applyNavOp(nav: NavItem[], op: NavOp): NavItem | undefined {
   if (op.op === "add-group") {
     if (!isValidTitle(op.title)) throw new UserError("分组名需要 1 到 60 个字");

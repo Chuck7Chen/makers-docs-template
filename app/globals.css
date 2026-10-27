@@ -1,13 +1,13 @@
-/* 只扫描源码目录。默认会监听整个项目，本地 Blob 数据（.blob-local）一写入，开发环境就整页热更新 */
+/* Only scan source directories. By default the whole project is watched, and every write to local Blob data (.blob-local) triggers a full reload in dev */
 @import "tailwindcss" source(none);
 @import "tw-animate-css";
 @source "../app";
 @source "../components";
 
-/* 后台组件来自 shadcn/ui（components/ui），下面是它的主题。没有暗色模式，dark: 只在 .dark 里生效，不跟随系统 */
+/* Admin components come from shadcn/ui (components/ui); below is its theme. There is no dark mode: dark: only applies inside .dark and does not follow the system */
 @custom-variant dark (&:is(.dark *));
 
-/* 组件用到的状态变体，摘自 shadcn/tailwind.css，不引入整个 shadcn 包 */
+/* State variants used by the components, copied from shadcn/tailwind.css to avoid pulling in the whole shadcn package */
 @custom-variant data-open {
   &:where([data-state="open"]),
   &:where([data-open]:not([data-open="false"])) {
@@ -69,7 +69,7 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  /* 站点主题色，页面按站点设置写入 --brand 等变量，见 lib/theme.ts */
+  /* Site theme colors; pages set --brand and related variables from site settings, see lib/theme.ts */
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
   --color-brand-text: var(--brand-text);
@@ -110,7 +110,7 @@
   }
 }
 
-/* 正文排版。阅读页和后台预览共用，预览的 iframe 会带上这份样式 */
+/* Content typography, shared by reader pages and the admin preview; the preview iframe includes these styles */
 
 .doc {
   color: #1f2937;
@@ -144,7 +144,7 @@
 .doc p,
 .doc ul,
 .doc ol,
-.doc table,
+.doc .table-scroll,
 .doc blockquote,
 .doc .code-block {
   margin: 1em 0;
@@ -196,21 +196,80 @@
   height: auto;
   max-width: 100%;
 }
-.doc table {
-  border-collapse: collapse;
-  display: block;
-  font-size: 0.95em;
+.doc .table-scroll {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 4%), 0 8px 24px rgb(15 23 42 / 3%);
   overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-color: #cbd5e1 transparent;
+  scrollbar-width: thin;
+}
+.doc .table-scroll:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--brand, #2563eb) 22%, transparent);
+  outline-offset: 2px;
+}
+.doc .table-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+.doc .table-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border: 2px solid #fff;
+  border-radius: 999px;
+}
+.doc table {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.9em;
+  line-height: 1.65;
+  margin: 0;
+  min-width: 760px;
+  width: 100%;
 }
 .doc th,
 .doc td {
-  border: 1px solid #e5e7eb;
-  padding: 0.5em 0.75em;
+  border-bottom: 1px solid #e8edf3;
+  padding: 0.85em 1em;
   text-align: left;
+  vertical-align: top;
+}
+.doc th + th,
+.doc td + td {
+  border-left: 1px solid #eef2f6;
 }
 .doc th {
-  background: #f9fafb;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 0.82rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+.doc tbody tr:nth-child(even) td {
+  background: #fbfdff;
+}
+.doc tbody tr:last-child td {
+  border-bottom: 0;
+}
+.doc tbody tr:hover td {
+  background: color-mix(in srgb, var(--brand, #2563eb) 4%, #fff);
+}
+.doc th:first-child,
+.doc td:first-child {
+  min-width: 6.5rem;
+  white-space: nowrap;
+  width: 1%;
+}
+.doc td:first-child {
+  color: #1e293b;
   font-weight: 600;
+}
+.doc .table-scroll :not(pre) > code {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  white-space: nowrap;
 }
 .doc code,
 .doc pre {
@@ -272,7 +331,7 @@
   width: 1px;
 }
 
-/* 代码高亮，配色接近 GitHub 浅色主题 */
+/* Syntax highlighting, colors close to GitHub's light theme */
 
 .doc .hljs-comment,
 .doc .hljs-quote {

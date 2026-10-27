@@ -5,7 +5,7 @@ import { UserError } from "@/lib/forms";
 import { isValidHandle } from "@/lib/rules";
 import { isExpired, keys, loadSite, type SiteConfig } from "@/lib/site";
 
-// 编辑令牌只存在浏览器的 Cookie 里，Blob 里只存它的哈希
+// The edit token lives only in a browser cookie; Blob stores just its hash
 
 const COOKIE_PREFIX = "edit_";
 const ONE_YEAR = 365 * 24 * 60 * 60;
@@ -43,7 +43,7 @@ export async function requireEditableSite(handle: string): Promise<SiteConfig> {
   return site;
 }
 
-// 临时站点的 Cookie 随站点一起过期；运营者建的站长期保留，Cookie 有效期一年
+// Demo site cookies expire with the site; existing sites without an expiry keep a one-year cookie
 export async function grantSiteAccess(site: SiteConfig, token: string) {
   const maxAge = site.expiresAt ? Math.ceil((site.expiresAt - Date.now()) / 1000) : ONE_YEAR;
   (await cookies()).set(COOKIE_PREFIX + site.handle, token, {
@@ -59,7 +59,7 @@ export async function revokeSiteAccess(handle: string) {
   (await cookies()).delete(COOKIE_PREFIX + handle);
 }
 
-// 当前浏览器能编辑的站点，只看 Cookie，调用方再逐个读站点配置
+// Sites this browser can edit, based on cookies only; callers then load each site's config
 export async function accessibleHandles() {
   return (await cookies())
     .getAll()

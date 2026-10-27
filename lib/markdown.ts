@@ -11,8 +11,8 @@ import type { SearchEntry } from "@/lib/site";
 
 export type Heading = { depth: 2 | 3; id: string; text: string };
 
-// 先净化再加标题锚点和高亮，后两步只产出受控的 id 和 class。
-// 正文不允许原始 HTML，净化前的 id 只来自脚注，已经带 user-content- 前缀，不用再加一遍
+// Sanitize before adding heading anchors and highlighting; those steps only emit controlled ids and classes.
+// Raw HTML is not allowed, so pre-sanitize ids only come from footnotes, which already carry the user-content- prefix
 const processor = unified()
   .use(remarkParse)
   .use(remarkGfm)
@@ -55,7 +55,16 @@ function codeBlock(pre: Element): Element {
   };
 }
 
-// 只保留本站上传的图片，代码块加复制按钮，顺带收集二、三级标题
+function tableBlock(table: Element): Element {
+  return {
+    type: "element",
+    tagName: "div",
+    properties: { className: ["table-scroll"], role: "region", tabIndex: 0 },
+    children: [table],
+  };
+}
+
+// Keep only images uploaded to this site, add copy buttons to code blocks, and collect h2/h3 headings
 function transform(parent: Root | Element, imagePrefix: string, headings: Heading[]) {
   const children = (parent.children as ElementContent[]).flatMap((child): ElementContent[] => {
     if (child.type !== "element") return [child];
@@ -70,7 +79,7 @@ function transform(parent: Root | Element, imagePrefix: string, headings: Headin
       headings.push({ depth: child.tagName === "h2" ? 2 : 3, id, text: textOf(child) });
     }
     transform(child, imagePrefix, headings);
-    return [child];
+    return [child.tagName === "table" ? tableBlock(child) : child];
   });
   (parent as Element).children = children;
 }
@@ -82,7 +91,7 @@ export function renderMarkdown(markdown: string, handle: string) {
   return { html: processor.stringify(tree), headings };
 }
 
-// 搜索索引：二、三级标题和正文前 1000 字
+// Search index: h2/h3 headings and the first 1000 characters of body text
 export function extractSearchEntry(markdown: string): SearchEntry {
   const headings: string[] = [];
   const blocks: string[] = [];

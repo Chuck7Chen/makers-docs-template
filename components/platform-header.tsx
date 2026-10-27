@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 
 export type Language = "zh" | "en";
 
-export const GITHUB_URL = "https://github.com/TencentEdgeOne/vibe-coding-agent-platform";
+export const GITHUB_URL = "https://github.com/Chuck7Chen/makers-docs-template";
 const DEPLOY_URL =
   "https://console.cloud.tencent.com/edgeone/makers/new?template=docs-multi-tenant-template&from=within&fromAgent=1&agentLang=typescript";
 export const CONTACT_URL = "https://makers.edgeone.link/document/platform-and-multi-tenancy#联系我们";

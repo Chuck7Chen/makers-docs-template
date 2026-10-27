@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { DEFAULT_ICON, faviconDataUri } from "@/lib/icons";
-import { DEFAULT_THEME } from "@/lib/theme";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "文档站多租户模板",
   description: "一个项目、一次部署，按域名服务所有文档站。",
-  icons: { icon: faviconDataUri(DEFAULT_ICON, DEFAULT_THEME) },
+  keywords: ["EdgeOne Makers", "EdgeOne Pages", "Next.js", "多租户", "文档站", "multi-tenant", "documentation"],
+  // Platform pages use the EdgeOne icon; each docs site overrides it with its own icon in app/s/[site]/layout.tsx
+  icons: { icon: "/favicon.ico" },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {

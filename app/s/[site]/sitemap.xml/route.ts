@@ -1,13 +1,9 @@
 import { flattenNav, pagePath } from "@/lib/nav";
 import { resolveSite, siteOrigin } from "@/lib/site";
 
-export const revalidate = 86400;
+export const dynamic = "force-dynamic";
 
-export function generateStaticParams() {
-  return [];
-}
-
-// 域名和 slug 都经过校验，不含需要转义的 XML 字符
+// Domains and slugs are validated and never contain characters that need XML escaping
 export async function GET(_request: Request, { params }: { params: Promise<{ site: string }> }) {
   const site = await resolveSite((await params).site);
   if (!site) return new Response("Not Found", { status: 404 });

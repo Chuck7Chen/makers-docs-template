@@ -56,13 +56,13 @@ type Props = {
   handle: string;
   version: number;
   nav: NavItem[];
-  // 体验站点的页数上限，平台管理员创建的长期站点为 null
+  // Page limit for demo sites; null for long-lived sites created by platform admins
   maxPages: number | null;
 };
 
 type DeleteTarget = { pos: string; title: string; page: boolean };
 
-// 每一行共用的状态和操作
+// State and operations shared by every row
 type Tree = {
   handle: string;
   groups: GroupOption[];
@@ -82,11 +82,11 @@ type Edges = { first: boolean; last: boolean };
 const rowTitleClass =
   "flex h-full min-w-0 flex-1 items-center gap-2 rounded-md pl-2 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50";
 const rowIconClass = "size-4 shrink-0 text-muted-foreground";
-// 行本身悬停时已经是 muted 底色，按钮要再深一点才看得出来
+// Rows already use the muted background on hover, so buttons need a darker shade to stand out
 const rowButtonClass =
   "text-muted-foreground hover:bg-foreground/8 hover:text-foreground aria-expanded:bg-foreground/8 aria-expanded:text-foreground";
 
-// 本地先改好再提交，保存结果回来后以服务端为准；本地判断不合法就不动，等服务端报错
+// Apply the change locally, then submit; the server result wins when it returns. Invalid local changes are left alone for the server to reject
 function applyLocally(nav: NavItem[], op: NavOp) {
   const next = structuredClone(nav);
   try {
@@ -105,7 +105,7 @@ export function NavEditor({ handle, version, nav, maxPages }: Props) {
   const [newPage, setNewPage] = useState({ open: false, group: "" });
   const [newGroupOpen, setNewGroupOpen] = useState(false);
   const [deleting, setDeleting] = useState<{ open: boolean; target?: DeleteTarget }>({ open: false });
-  // 从菜单打开输入框或对话框时，菜单关闭后不要把焦点还给菜单按钮
+  // When a menu item opens an input or dialog, don't return focus to the menu button after the menu closes
   const keepFocus = useRef(false);
 
   const groups = items.flatMap((item, index) => (isGroup(item) ? [{ pos: String(index), title: item.title }] : []));
@@ -238,7 +238,7 @@ export function NavEditor({ handle, version, nav, maxPages }: Props) {
   );
 }
 
-// 操作按钮平时隐藏，悬停、键盘聚焦或菜单打开时显示，触屏设备上一直显示
+// Action buttons are hidden until hover, keyboard focus or an open menu; always visible on touch devices
 function TreeRow({ actions, children }: { actions?: ReactNode; children: ReactNode }) {
   return (
     <div className="group/row flex h-9 items-center gap-1 rounded-md pr-1 hover:bg-muted has-[[data-slot=dropdown-menu-trigger][data-state=open]]:bg-muted">
@@ -252,7 +252,7 @@ function TreeRow({ actions, children }: { actions?: ReactNode; children: ReactNo
   );
 }
 
-// 回车或失焦时保存，Esc 取消；输入法选字时按的回车不算
+// Save on Enter or blur, cancel on Esc; Enter during IME composition is ignored
 function RenameRow({ lead, title, onDone }: { lead: ReactNode; title: string; onDone: (title: string | null) => void }) {
   const done = useRef(false);
 

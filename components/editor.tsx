@@ -26,9 +26,9 @@ type Props = {
   description: string;
   markdown: string;
   version: number;
-  // 体验站点有正文大小上限，平台管理员创建的长期站点为 null
+  // Content size limit for demo sites; null for long-lived sites created by platform admins
   maxBytes: number | null;
-  // 只有平台管理员创建的长期站点能上传图片，其他为 null
+  // Only long-lived sites created by platform admins can upload images; null otherwise
   maxImageBytes: number | null;
 };
 
@@ -40,7 +40,7 @@ function formatBytes(bytes: number) {
   return bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`;
 }
 
-// 预览放进无脚本、无同源权限的 iframe，样式沿用后台页面已加载的那份
+// The preview renders in an iframe without scripts or same-origin access, reusing the styles already loaded by the admin page
 function previewDocument(html: string) {
   const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'), (node) => node.outerHTML).join("");
   return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">${styles}<style>body{margin:0;padding:24px;background:#fff}</style></head><body><div class="doc">${html}</div></body></html>`;
@@ -56,7 +56,7 @@ export function Editor(props: Props) {
   const [uploading, startUpload] = useTransition();
   const [state, formAction, saving] = useActionState(savePageAction, { version: props.version });
 
-  // 保存成功后，把提交时的内容记为“已保存”，用来判断有没有未保存的修改
+  // After a successful save, record the submitted content as saved to detect unsaved changes
   const [submitted, setSubmitted] = useState<Snapshot | null>(null);
   const [baseline, setBaseline] = useState<Snapshot>({
     title: props.title,
@@ -103,7 +103,7 @@ export function Editor(props: Props) {
     });
   }
 
-  // 图片单独成段：前后不够一个空行就补上，否则会和相邻文字并成一段
+  // Images get their own paragraph: add blank lines around them, otherwise they merge into the adjacent text
   function insertBlock(text: string) {
     const textarea = textareaRef.current;
     const start = textarea?.selectionStart ?? markdown.length;

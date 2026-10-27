@@ -7,42 +7,39 @@ import { ROOT_DOMAIN } from "@/lib/rules";
 
 const COPY = {
   zh: {
-    eyebrow: "EDGEONE MAKERS · DOCS",
-    headlinePrefix: "",
-    headlineAccent: "几秒上线",
-    headlineSuffix: "你的文档站",
-    description: "一个项目服务多个站点。输入名称即可获得独立子域名，用 Markdown 写作，保存后立即上线。",
+    eyebrow: "EDGEONE MAKERS · 多租户模板",
+    headlinePrefix: "一套代码，",
+    headlineAccent: "服务多个",
+    headlineSuffix: "文档站",
+    description: "一次部署，按域名服务多个独立文档站。每个站点有独立的子域名、导航、内容和主题，还可以接入自有域名。",
     formTitle: "创建体验站点",
-    formDescription: "无需注册，起个名字即可开始。",
+    formDescription: "无需注册，体验多租户建站与域名路由。站点 24 小时有效。",
     manage: "我的站点",
-    manageDescription: "查看并继续编辑已创建的站点",
-    createdHost: "创建后获得独立地址",
+    manageDescription: "继续编辑已创建的站点",
     warning: "还没有配置 ROOT_DOMAIN，子域名站点暂时无法访问。",
-    limit: `体验站点仅当前浏览器可编辑，最多 ${MAX_PAGES_PER_TEMP_SITE} 页，${TEMP_SITE_TTL_HOURS} 小时后自动删除。`,
+    limit: `仅当前浏览器可编辑，最多 ${MAX_PAGES_PER_TEMP_SITE} 页，${TEMP_SITE_TTL_HOURS} 小时后自动删除。`,
     features: [
-      { title: "独立域名路由", text: "按 Host 识别站点，子域名和自有域名都能访问。" },
-      { title: "Markdown 即时发布", text: "编写、预览和保存都在同一个简洁后台完成。" },
-      { title: "轻量基础设施", text: "内容存在 Blob，并按页面精确刷新缓存。" },
+      { title: "按域名隔离租户", text: "子域名与自有域名自动识别站点，访问地址保持不变。" },
+      { title: "共享代码一次部署", text: "一次部署服务多个租户，内容与配置独立存储、互不干扰。" },
+      { title: "Markdown 即时发布", text: "Markdown 编写预览，保存即发布，缓存按页面自动刷新。" },
     ],
   },
   en: {
-    eyebrow: "EDGEONE MAKERS · DOCS",
-    headlinePrefix: "",
-    headlineAccent: "Launch your docs",
-    headlineSuffix: "in seconds",
-    description:
-      "Run multiple docs sites from one project. Name your site, get a dedicated subdomain, write in Markdown, and publish instantly.",
+    eyebrow: "EDGEONE MAKERS · MULTI-TENANT TEMPLATE",
+    headlinePrefix: "One codebase, ",
+    headlineAccent: "many docs",
+    headlineSuffix: "sites",
+    description: "Deploy once, serve many docs sites by domain. Each site gets its own subdomain, navigation, content, theme, and optional custom domain.",
     formTitle: "Create a demo site",
-    formDescription: "No account required. Just give it a name.",
+    formDescription: "No sign-up required. Try multi-tenant site creation and routing. Sites expire after 24 hours.",
     manage: "My sites",
-    manageDescription: "View and continue editing your sites",
-    createdHost: "Your site gets a dedicated address",
+    manageDescription: "Continue editing your sites",
     warning: "ROOT_DOMAIN is not configured, so subdomain sites are currently unavailable.",
-    limit: `Demo sites can only be edited in this browser, support up to ${MAX_PAGES_PER_TEMP_SITE} pages, and expire after ${TEMP_SITE_TTL_HOURS} hours.`,
+    limit: `Editable only in this browser. Up to ${MAX_PAGES_PER_TEMP_SITE} pages, deleted after ${TEMP_SITE_TTL_HOURS} hours.`,
     features: [
-      { title: "Host-based routing", text: "Resolve subdomains and custom domains at the edge." },
-      { title: "Markdown publishing", text: "Write, preview, and publish from one focused workspace." },
-      { title: "Minimal infrastructure", text: "Store content in Blob and invalidate only changed pages." },
+      { title: "Domain-based tenants", text: "Edge middleware resolves sites by Host. Subdomains and custom domains route automatically." },
+      { title: "One shared deploy", text: "All tenants share a single Next.js project. Content, config, and search indexes are isolated by prefix in Blob storage." },
+      { title: "Publish on save", text: "Write and preview Markdown in the admin panel. Cache is invalidated per page, per tenant — other sites are unaffected." },
     ],
   },
 } as const;
@@ -55,12 +52,14 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   const { lang } = await searchParams;
   return lang === "en"
     ? {
-        title: "Makers Docs",
-        description: "Create and publish multiple documentation sites from one project.",
+        title: "Multi-Tenant Docs Template",
+        description: "A multi-tenant docs site template built on EdgeOne Makers. Deploy once, serve many tenants.",
+        keywords: ["EdgeOne Makers", "EdgeOne Pages", "Next.js", "multi-tenant", "docs site", "custom domain", "middleware"],
       }
     : {
-        title: "Makers Docs 文档站模板",
-        description: "一个项目、一次部署，按域名服务所有文档站。",
+        title: "多租户文档站模板",
+        description: "基于 EdgeOne Makers 的多租户文档站模板，一次部署按域名服务多个租户。",
+        keywords: ["EdgeOne Makers", "EdgeOne Pages", "Next.js", "多租户", "文档站", "自定义域名", "中间件"],
       };
 }
 
@@ -68,7 +67,6 @@ export default async function Home({ searchParams }: Props) {
   const query = await searchParams;
   const language: Language = query.lang === "en" ? "en" : "zh";
   const text = COPY[language];
-  const exampleHost = `your-site.${ROOT_DOMAIN || "docs.example.com"}`;
 
   return (
     <div lang={language === "en" ? "en" : "zh-CN"} className="flex min-h-screen flex-col bg-white text-foreground">
@@ -103,13 +101,14 @@ export default async function Home({ searchParams }: Props) {
               </div>
             ) : null}
 
-            <div className="mt-5">
-              <CreateSiteForm language={language} />
+            <div className="mt-6">
+              <CreateSiteForm language={language} rootDomain={ROOT_DOMAIN} />
             </div>
+            <p className="mt-3 text-[11px] leading-5 text-zinc-400">{text.limit}</p>
 
             <a
               href="/admin"
-              className="group mt-3 flex items-center gap-3 rounded-lg border border-primary/15 bg-white px-3.5 py-3 shadow-xs transition-colors hover:border-primary/30 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary/20"
+              className="group mt-6 flex items-center gap-3 rounded-lg border border-primary/15 bg-white px-3.5 py-3 shadow-xs transition-colors hover:border-primary/30 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-primary/20"
             >
               <span className="grid size-8 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
                 <PanelsTopLeft className="size-4" />
@@ -120,12 +119,6 @@ export default async function Home({ searchParams }: Props) {
               </span>
               <ArrowRight className="size-4 shrink-0 text-primary transition-transform group-hover:translate-x-0.5" />
             </a>
-
-            <div className="mt-8 flex flex-col gap-2 border-y py-4 text-xs text-zinc-500 sm:flex-row sm:items-center sm:justify-between lg:flex-col lg:items-start xl:flex-row xl:items-center">
-              <span>{text.createdHost}</span>
-              <code className="truncate rounded-md bg-zinc-100 px-2 py-1 font-mono text-[11px] text-zinc-700">{exampleHost}</code>
-            </div>
-            <p className="mt-4 text-[11px] leading-5 text-zinc-400">{text.limit}</p>
           </div>
 
           <div className="grid gap-5 self-start sm:grid-cols-3">

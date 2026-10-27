@@ -1,5 +1,5 @@
 /*
- * 图标来自 Lucide（lucide-static v1.54.0），按 ISC 许可使用：
+ * Icons from Lucide (lucide-static v1.54.0), used under the ISC License:
  *
  * ISC License
  *
@@ -103,7 +103,7 @@ export function iconPaths(name: string) {
   return isIconName(name) ? ICONS[name] : ICONS[DEFAULT_ICON];
 }
 
-// 主题色圆角方块加白色图标，24 的图标缩放到 32 的画布里，四周留 6
+// White icon on a rounded theme-colored square; the 24px icon is scaled into a 32px canvas with 6px padding
 export function faviconDataUri(icon: string, theme: string) {
   const svg =
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">` +

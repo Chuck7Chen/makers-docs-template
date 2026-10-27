@@ -3,15 +3,20 @@ import type { Dirent } from "node:fs";
 import { mkdir, readFile, readdir, rm, rmdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-// 直接 npm run dev 时没有 Blob 凭证，改用 .blob-local/ 目录；部署后和 edgeone makers dev 都走真实的 Blob
-const useLocal = process.env.NODE_ENV === "development" && !process.env.PAGES_BLOB_DEPLOY_CREDENTIAL;
-const LOCAL_ROOT = path.join(process.cwd(), ".blob-local");
+// Plain npm run dev has no Blob credentials, so data goes to .blob-local/; deployments and edgeone makers dev use the real Blob store
+const localOverride = process.env.DOCS_LOCAL_STORE_PATH;
+const useLocal = !!localOverride || (process.env.NODE_ENV === "development" && !process.env.PAGES_BLOB_DEPLOY_CREDENTIAL);
+// Keep the two branches separate: with resolve(cwd, override || ".blob-local"), Next's file tracing pulls the whole project (including .env and .git) into the cloud function
+const LOCAL_ROOT = localOverride ? path.resolve(localOverride) : path.join(process.cwd(), ".blob-local");
+if (useLocal && !LOCAL_ROOT.startsWith(`${process.cwd()}${path.sep}`)) {
+  throw new Error("Local Blob storage must be inside the project directory");
+}
 
 let store: Store | undefined;
 
-// 构建时没有凭证，getStore 会抛错，所以第一次读写时才创建
+// There are no credentials at build time and getStore would throw, so create the store on first use
 function remote() {
-  // 类型要求 projectId 和 token；在 Makers 上 SDK 自己读部署凭证，不需要传
+  // The types require projectId and token; on Makers the SDK reads deployment credentials itself
   store ??= getStore({ name: "docs", consistency: "strong" } as StoreOptions);
   return store;
 }
@@ -47,14 +52,14 @@ export async function remove(key: string) {
   await remote().delete(key);
 }
 
-// prefix 以 / 结尾，返回其下所有对象的完整 key
+// prefix ends with /; returns the full keys of all objects under it
 export async function listKeys(prefix: string): Promise<string[]> {
   if (useLocal) return localList(prefix);
   const { blobs } = await remote().list({ prefix });
   return blobs.map((blob) => blob.key);
 }
 
-// prefix 以 / 结尾，返回下一级目录，形如 sites/acme/
+// prefix ends with /; returns the next directory level, such as sites/acme/
 export async function listDirs(prefix: string): Promise<string[]> {
   if (useLocal) {
     const entries = await localEntries(localPath(prefix));
@@ -83,7 +88,7 @@ async function localWrite(key: string, data: string | Uint8Array) {
   await writeFile(file, data);
 }
 
-// Blob 的目录只是 key 的前缀，删空了就不存在；本地也把空目录删掉，listDirs 才不会列出已删的站点
+// Blob directories are just key prefixes and vanish when empty; remove empty local directories too so listDirs skips deleted sites
 async function localRemove(key: string) {
   const file = localPath(key);
   await rm(file, { force: true });

@@ -22,7 +22,7 @@ type Props = ComponentProps<typeof Button> & {
   confirmText?: string;
 };
 
-// 放在表单里的危险操作按钮，确认后提交按钮所在的表单
+// Button for destructive actions inside a form; submits the enclosing form after confirmation
 export function ConfirmButton({
   title,
   description,

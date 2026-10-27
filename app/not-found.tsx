@@ -1,6 +1,6 @@
 import { TEMP_SITE_TTL_HOURS } from "@/lib/demo";
 
-// 平台域名下的 404，以及子域名或自有域名找不到站点时的 404
+// 404 for the platform domain, and for subdomains or custom domains with no matching site
 export default function NotFound() {
   return (
     <main className="mx-auto max-w-md px-6 py-32 text-center">

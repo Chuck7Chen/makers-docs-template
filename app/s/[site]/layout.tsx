@@ -10,6 +10,8 @@ import { faviconDataUri } from "@/lib/icons";
 import { isTemporary, resolveSite } from "@/lib/site";
 import { brandStyle } from "@/lib/theme";
 
+export const revalidate = false;
+
 type Props = { params: Promise<{ site: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {

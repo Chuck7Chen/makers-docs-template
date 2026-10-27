@@ -1,13 +1,9 @@
 import { flattenNav, pagePath } from "@/lib/nav";
 import { getSearchIndex, resolveSite } from "@/lib/site";
 
-export const revalidate = 86400;
+export const dynamic = "force-dynamic";
 
-export function generateStaticParams() {
-  return [];
-}
-
-// 标题以导航为准，索引里只有小标题和正文
+// Titles come from the nav; the index only holds headings and body text
 export async function GET(_request: Request, { params }: { params: Promise<{ site: string }> }) {
   const site = await resolveSite((await params).site);
   if (!site) return new Response("Not Found", { status: 404 });

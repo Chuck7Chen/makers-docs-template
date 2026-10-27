@@ -1,12 +1,8 @@
 import { isTemporary, resolveSite, siteOrigin } from "@/lib/site";
 
-export const revalidate = 86400;
+export const dynamic = "force-dynamic";
 
-export function generateStaticParams() {
-  return [];
-}
-
-// 临时站点不让搜索引擎收录
+// Keep temporary sites out of search engines
 export async function GET(_request: Request, { params }: { params: Promise<{ site: string }> }) {
   const site = await resolveSite((await params).site);
   if (!site) return new Response("Not Found", { status: 404 });

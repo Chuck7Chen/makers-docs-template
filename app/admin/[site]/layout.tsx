@@ -16,7 +16,7 @@ export async function generateMetadata({ params }: Pick<Props, "params">) {
   return { title: site ? `${site.name} - 后台` : "后台" };
 }
 
-// 后台的每个页面都先经过这里校验编辑令牌；Server Action 另外各自校验
+// Every admin page checks the edit token here first; Server Actions check it again on their own
 export default async function SiteAdminLayout({ children, params }: Props) {
   const { site: handle } = await params;
   if (!(await hasSiteAccess(handle))) redirect("/admin");

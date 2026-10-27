@@ -1,359 +1,266 @@
 import type { NavItem } from "@/lib/nav";
 
-// 新站点自带的模板使用说明与 Makers 多租户指南，内容结合官方文档和实际实现
+// Built-in guide pages for new sites
 
 export const SAMPLE_NAV: NavItem[] = [
   { title: "概览", slug: "index" },
-  {
-    title: "模板使用",
-    pages: [
-      { title: "快速开始", slug: "quick-start" },
-      { title: "平台管理与长期站点", slug: "operations" },
-    ],
-  },
-  {
-    title: "多租户指南",
-    pages: [
-      { title: "选择租户模式", slug: "guide/modes" },
-      { title: "共享代码实践", slug: "guide/shared-code" },
-      { title: "域名与上线", slug: "guide/domains" },
-    ],
-  },
+  { title: "快速开始", slug: "quick-start" },
+  { title: "站点设置", slug: "settings" },
+  { title: "自定义域名", slug: "custom-domain" },
+  { title: "模板架构", slug: "architecture" },
+  { title: "ISR 与缓存刷新", slug: "isr" },
 ];
 
 export const SAMPLE_PAGES: Record<string, string> = {
-  index: `EdgeOne Makers 的平台与多租户方案，帮助企业把项目创建、应用部署、域名分配与运行能力集成到自己的产品中，为不同用户、组织或业务空间交付 Web 应用。
+  index: `这是一个基于 EdgeOne Makers 构建的**多租户文档站模板**，采用共享代码模式：一个 Next.js 项目、一次部署，按访问域名服务多个独立站点。
 
-> 这个演示采用**共享代码模式**：所有文档站共用一个 Next.js 项目，由边缘中间件根据访问域名识别租户，再读取对应的内容与配置。
+> **仅供体验。** 本模板用于演示多租户模板的核心功能——域名路由、站点隔离、内容编辑与自定义域名。体验站点 24 小时后自动删除，不适合存放正式内容。
 
-## Makers 的两种多租户模式
+## 你可以体验什么
 
-| 模式 | 租户边界 | 适合场景 |
-| --- | --- | --- |
-| 独立项目 | 每个租户或应用使用独立 Makers 项目 | AI Coding、独立 Agent、白标 SaaS、需要独立发布节奏的应用 |
-| 共享代码 | 多个租户共用一个项目和代码库 | 文档平台、内容平台、博客和代码一致的模板化 SaaS |
+- **自选域名前缀**：建站时填写子域名前缀（如 \`acme\`），获得独立地址 \`acme.{平台域名}\`；
+- **Markdown 写作**：在后台编辑和预览 Markdown，保存即发布；
+- **自定义域名**：为站点绑定自有域名，详见[自定义域名](/custom-domain)；
+- **站点配置**：切换主题、图标，管理导航结构。
 
-文档站的页面结构和发布逻辑通常一致，只有名称、导航、正文、主题和域名不同，因此共享代码模式能减少重复部署和维护成本。详细差异见[选择租户模式](/guide/modes)。
+## 开始使用
 
-## 这个模板如何工作
+1. 从平台首页创建站点 → [快速开始](/quick-start)
+2. 在后台调整外观和导航 → [站点设置](/settings)
+3. 绑定自有域名 → [自定义域名](/custom-domain)
 
-请求在边缘完成租户识别，用户看到的地址不会改变：
+## 了解更多
 
-\`\`\`text
-访问 try-acme.docs.example.com/guide
-                │
-                ▼
-Middleware 读取 Host，识别租户 try-acme
-                │ rewrite
-                ▼
-/s/try-acme/guide → 读取该租户的配置、导航与正文
-\`\`\`
+多租户方案的完整说明请参阅官方文档：
 
-- **路由**：\`middleware.ts\` 按 Host 区分平台域名、租户子域名和自有域名。
-- **数据**：站点配置、Markdown、搜索索引和图片按租户前缀存入 Makers Blob。
-- **发布**：页面使用 ISR 缓存，保存时只失效被修改站点和页面的缓存标签。
-- **域名**：体验站点自动获得子域名，长期站点还可以登记自有域名。
-
-## 谁会使用这个模板
-
-- **访客**可以阅读任意公开站点，也可以从平台首页创建一个 24 小时有效的体验站点。
-- **编辑者**是持有某个站点编辑令牌的浏览器，可以管理该站点的目录、正文和外观。
-- **平台管理员**是可选的模板运营角色。部署方启用平台管理后，可以登录 \`/ops\` 创建长期站点、管理自有域名和清理全部站点。
-
-这个模板没有面向访客的注册或成员系统。“编辑者”和“平台管理员”使用两套独立凭证：前者持有每站点令牌，后者使用部署环境变量配置的管理账号和密码。平台管理不启用时，访客创建和编辑体验站点不受影响。详细说明见[平台管理与长期站点](/operations)。
-
-## 开始体验
-
-1. 先阅读[快速开始](/quick-start)，完成建站、编辑和发布。
-2. 在后台的**目录**中新建、排序或移动页面。
-3. 在**设置**中选择主题和图标，并按需重建搜索索引。
-4. 阅读[共享代码实践](/guide/shared-code)和[域名与上线](/guide/domains)，了解实现边界。
-
-## 官方资料
-
-- [平台与多租户](https://makers.edgeone.link/document/platform-and-multi-tenancy)
+- [平台与多租户方案概览](https://makers.edgeone.link/document/platform-and-multi-tenancy)
 - [EdgeOne Middleware](https://makers.edgeone.link/document/middleware)
 - [域名管理概览](https://makers.edgeone.link/document/domain-overview)
 `,
 
-  "quick-start": `这个模板是一套开箱可用的多租户文档平台：平台首页负责建站，后台负责管理内容，每个站点都有独立的子域名、导航、Markdown 正文和外观配置。
+  "quick-start": `从首页创建站点到发布内容，只需几分钟。
 
-> 从首页创建的是体验站点，仅当前浏览器可以编辑，最多 30 页，并会在 24 小时后自动删除。
+> 体验站点仅当前浏览器可编辑，最多 30 页，24 小时后自动删除。
 
-## 1. 创建第一个站点
+## 1. 创建站点
 
-1. 打开平台首页，输入站点名称并点击**创建站点**。
-2. 模板会自动分配一个 \`try-xxxxxx\` 子域名，并进入这个站点的后台。
-3. 浏览器会保存编辑凭证；无需注册，但换浏览器或清除 Cookie 后将无法继续编辑。
+1. 打开平台首页，输入站点名称；
+2. 可选填写子域名前缀（留空则自动分配 \`try-\` 开头的随机前缀）；
+3. 点击**创建站点**，进入后台。
 
-站点创建完成时已经带有一套示例内容，可以直接修改，不需要从空白页开始。
+浏览器会保存编辑凭证（HttpOnly Cookie），无需注册。换浏览器或清除 Cookie 后将无法继续编辑。
 
-## 2. 组织页面和导航
+## 2. 管理导航
 
-进入后台的**页面**标签，在**目录**中管理阅读端侧栏：
+在后台**页面**标签的目录中：
 
-- 点击**新建页面**填写标题和地址，例如 \`guide/install\`；
-- 使用分组组织同一主题下的页面，侧栏最多显示两级；
-- 打开页面右侧菜单，可以重命名、排序、移动或删除；
-- 点击页面名称进入 Markdown 编辑器。
+- 点击**新建页面**，填写标题和地址（如 \`guide/install\`）；
+- 用分组组织同一主题的页面，侧栏最多显示两级；
+- 通过右侧菜单重命名、排序、移动或删除页面。
 
-## 3. 编写并发布
+## 3. 编辑和发布
 
-编辑器可以同时修改页面标题、简介和 Markdown 正文：
+点击页面名称进入编辑器：
 
-1. 点击**预览**检查最终效果；
-2. 点击**保存**，或按 \`Ctrl+S\` / \`⌘S\`；
-3. 保存成功后点击**查看页面**，阅读端会立即更新。
+1. 修改标题、简介和 Markdown 正文；
+2. 点击**预览**查看效果；
+3. 点击**保存**或按 \`Ctrl+S\` / \`⌘S\`，阅读端立即更新。
 
-正文支持表格、任务列表、删除线、脚注和代码块。长期站点还可以上传图片；为了控制公共体验项目的存储和内容风险，体验站点不展示图片。
+正文支持 GFM 语法：表格、任务列表、删除线、脚注和代码块。体验站点不支持上传图片。
 
-## 4. 设置站点外观
+## 下一步
 
-在后台的**设置**标签中，可以修改：
-
-- 站点名称和搜索引擎摘要；
-- 主题色与预设图标；
-- 长期站点的自定义 Logo；
-- 搜索索引。正常保存页面时索引会自动更新，搜索结果异常时再手动重建。
-
-## 5. 部署为长期站点
-
-准备正式使用时，在 Makers 部署这个模板：
-
-1. 设置 \`ROOT_DOMAIN\`，把平台域名和泛域名绑定到同一个 Makers 项目；
-2. 如果只提供公开体验站点，不需要配置管理员账号或密码；
-3. 如果需要长期站点、图片上传或自有域名，再配置 \`ADMIN_PASSWORD\`，并按需配置 \`ADMIN_USERNAME\`；
-4. 启用平台管理后，从平台域名下的 \`/ops\` 创建不会自动过期的站点。
-
-平台管理权限、站点差异和完整操作见[平台管理与长期站点](/operations)，域名配置见[域名与上线](/guide/domains)。想了解模板如何隔离路由、数据、缓存与权限，可继续阅读[共享代码实践](/guide/shared-code)。
+- 调整外观 → [站点设置](/settings)
+- 绑定域名 → [自定义域名](/custom-domain)
 `,
 
-  operations: `平台管理是模板的可选能力。启用后，平台管理员作为部署方的内部运营身份执行跨站点操作；它不属于任何租户，也不是普通访客账号或站点成员角色。
+  settings: `在后台**设置**标签中配置站点外观。
 
-> 当前模板没有完整的用户账号系统。\`/ops\` 使用部署环境变量配置的单一管理账号和密码，通过站内登录页建立 12 小时签名会话；站点编辑仍使用每个站点独立的浏览器 Cookie。
+## 站点信息
 
-## 三类访问权限
+- **站点名称**：显示在顶栏和浏览器标签页；
+- **简介**：显示在首页标题下方，也用作搜索引擎摘要。
 
-| 身份 | 凭证 | 可以做什么 |
-| --- | --- | --- |
-| 访客 | 无 | 阅读公开文档、创建体验站点 |
-| 站点编辑者 | \`edit_{handle}\` Cookie | 编辑自己持有令牌的站点 |
-| 平台管理员 | \`ADMIN_USERNAME\` + \`ADMIN_PASSWORD\` | 进入 \`/ops\`，管理平台上的全部站点和域名 |
+## 主题和图标
 
-不配置 \`ADMIN_PASSWORD\` 时，平台管理入口保持关闭，不影响首页、体验站点或公开阅读。平台管理会话也不会自动赋予所有站点的编辑权限：从 \`/ops\` 创建长期站点后，当前浏览器会获得该站点的编辑令牌并跳转到后台；换浏览器后，仅登录平台管理仍不能直接编辑原站点。
+- 从 10 套预设主题中选择配色，图标和链接高亮色会随之切换；
+- 从预设图标库中选择站点图标，用主题色显示在顶栏。
 
-## 体验站与长期站
+保存后阅读端立即生效。
 
-| 能力 | 体验站 | 长期站点 |
-| --- | --- | --- |
-| 创建入口 | 平台首页 | \`/ops\` |
-| 子域名 | 随机 \`try-xxxxxx\` | 平台管理员指定 |
-| 有效期 | 24 小时 | 不自动过期 |
-| 内容限制 | 最多 30 页，每页 50 KB | 不受体验站的 30 页与 50 KB 限制，仍受部署平台请求限制 |
-| 图片和 Logo | 不支持 | 支持，单张最大 1 MB |
-| 自有域名 | 不支持 | 支持 |
-| 搜索引擎 | 默认禁止收录 | 默认允许收录 |
+## 搜索索引
 
-长期站点会一直保留，直到拥有编辑权限的浏览器或平台管理员主动删除。
+保存页面时搜索索引自动更新。如果搜索结果与正文不一致，可以在设置中点击**重建索引**。
 
-## 可选：开启平台管理入口
+## 删除站点
 
-多租户子域名依赖 \`ROOT_DOMAIN\`。只有需要平台管理和长期站点时，才需要再配置管理凭证：
+在设置底部可以删除站点，所有页面和配置会被清除，无法恢复。体验站点 24 小时后也会自动清理。
+`,
 
-\`\`\`bash
-ROOT_DOMAIN=docs.example.com
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=请设置为独立的随机密码
-\`\`\`
+  "custom-domain": `体验站点创建后自动获得子域名（如 \`acme.{平台域名}\`），还可以在后台设置中绑定自有域名。
 
-\`ADMIN_USERNAME\` 也可以留空，此时默认使用 \`admin\`。代码不强制密码长度，但公开部署时建议使用至少 16 位随机字符串。未配置 \`ADMIN_PASSWORD\` 时，“我的站点”不会显示平台管理入口，\`/ops\` 会返回 404。
+> 绑定自有域名不会延长体验站点的 24 小时有效期，也不会开放图片上传。
 
-配置并重新部署后，打开：
+## 操作步骤
+
+### 第一步：在 Makers 控制台绑定域名
+
+自有域名需要先在 Makers 项目中完成基础设施配置：
+
+1. 进入 [Makers 控制台](https://console.cloud.tencent.com/edgeone/makers)，打开对应项目的**域名管理**；
+2. 点击**添加域名**，输入完整域名（如 \`docs.acme.com\`）；
+3. 按提示在域名服务商处添加 DNS 记录，完成归属验证；
+4. 配置 CNAME 指向 Makers 分配的地址；
+5. 等待 SSL 证书签发和域名状态变为正常。
+
+> 详细流程参见 [添加自定义域名](https://makers.edgeone.link/document/custom-domain)。
+
+### 第二步：在站点后台登记域名
+
+Makers 控制台配置完成后，回到站点后台：
+
+1. 打开**设置**标签，找到**域名**卡片；
+2. 在输入框中填写完整域名（如 \`docs.acme.com\`），点击**登记域名**；
+3. 登记成功后，子域名和自有域名都能访问站点内容。
+
+### 第三步：验证访问
+
+在浏览器中直接访问自有域名，确认页面正常显示。
+
+## 移除域名
+
+在设置的域名列表中，点击对应域名旁的**移除**按钮即可解除绑定。移除后该域名不再指向本站点。
+
+## 注意事项
+
+- **第一个自有域名**会被用于 canonical 链接和 sitemap，建议优先登记最常用的域名；
+- 平台域名（\`ROOT_DOMAIN\` 及其子域名）无需登记，系统自动处理；
+- 每个域名同一时间只能绑定一个站点，已被其他站点占用的域名需先在原站点移除；
+- 域名登记仅在应用层建立映射，**不会**自动完成 DNS 配置或证书签发；
+- 加速区域包含中国大陆的域名需要完成工信部备案，详见[域名管理概览](https://makers.edgeone.link/document/domain-overview)。
+
+## 子域名前缀
+
+建站时可以自选子域名前缀：
+
+- 1–32 位小写字母、数字和连字符，首尾不能是连字符；
+- \`www\`、\`admin\`、\`api\`、\`app\` 为保留前缀；
+- 留空则自动分配 \`try-\` 开头的随机前缀；
+- 已被未过期站点占用的前缀会被拒绝，过期后可复用；
+- 建站后不支持修改前缀。
+`,
+
+  architecture: `本模板的技术实现概要。完整多租户方案请参阅[官方文档](https://makers.edgeone.link/document/platform-and-multi-tenancy)。
+
+## 请求路由
+
+\`middleware.ts\` 按 Host 识别租户，执行过期门禁检查：
 
 \`\`\`text
-https://docs.example.com/ops
+请求 acme.docs.example.com/guide
+  → Middleware 读取 lib/lifecycle.ts readJSON 检查站点 expiresAt
+  → 过期返回 404，存储异常返回 503
+  → rewrite 到 /s/acme/guide
+  → 读取该租户的配置和内容
 \`\`\`
 
-页面会显示平台管理登录表单。账号必须与 \`ADMIN_USERNAME\` 一致，密码必须与 \`ADMIN_PASSWORD\` 一致；登录成功后会创建仅用于 \`/ops\` 的签名 Cookie。
+平台域名进入首页和后台；租户子域名和自有域名改写到内部的 \`/s/[site]\` 路由。
 
-## 创建长期站点
+## 数据存储
 
-1. 在 \`/ops\` 的**用指定子域名建站**区域填写子域名，例如 \`acme\`。
-2. 填写站点名称并点击**建站**。
-3. 模板创建站点数据和独立编辑令牌，然后跳转到站点后台。
-4. 在**页面**中维护导航和 Markdown，在**设置**中选择主题、图标或上传 Logo。
-5. 编辑正文时可点击**插入图片**，上传后编辑器会自动插入本站资源地址。
+所有租户数据共用一个 Blob store，按 handle 前缀隔离：
 
-长期站点仍与其他站点共用代码和 Blob Store，但配置、正文、搜索索引、令牌和图片都存放在 \`sites/{handle}/\` 前缀下。
+\`\`\`text
+sites/{handle}/site.json       站点配置
+sites/{handle}/pages/{slug}.json  页面内容
+sites/{handle}/search.json     搜索索引
+sites/{handle}/auth.json       编辑凭证哈希
+domains/{host}.json            自有域名映射
+\`\`\`
 
-## 平台管理页可以做什么
+## 缓存与失效
 
-- 查看全部体验站和长期站点，以及体验站剩余时间；
-- 使用指定且未占用的子域名创建长期站点；
-- 删除任意站点及其页面、图片、搜索索引和域名映射；
-- 为长期站点登记或移除自有域名。
+**页面渲染**：layout 和 page 都 \`export const revalidate = false\`，page 保留 \`generateStaticParams\` 返回空数组。首次访问生成 Next Full Route Cache 的 HTML/RSC，后续缓存命中，内容修改后下次访问重新生成（不是每次 SSR）。
 
-平台管理页只登记应用内的域名映射。使用自有域名前，还需要在 Makers 控制台完成域名绑定、DNS 验证和 CNAME 配置，具体流程见[域名与上线](/guide/domains)。
+**数据层**：通过 \`unstable_cache\` + 缓存标签持久化。保存时按 tag 精确失效，通过 \`lib/invalidation.ts\` 统一失效 site/page/domain 标签和实际内部路径。
 
-## 上线前的安全建议
+**受保护资源**：返回 \`Cache-Control: private, no-store, max-age=0\` 和 \`CDN-Cache-Control: no-store\` 防外层浏览器/CDN 缓存绕过门禁。
 
-- 使用独立体验域名，不要让访客内容运行在企业品牌主域名下；
-- 如启用平台管理，建议为 \`ADMIN_PASSWORD\` 使用至少 16 位的独立随机密码，并通过部署环境变量管理；
-- 增加建站限流、验证码、内容审核和滥用投诉入口；
-- 定期清理过期数据，并监控 Blob 用量和异常建站请求；
-- 不要在站点中保存私密资料：阅读端、搜索索引和图片都是公开资源。
+详见 [ISR 与缓存刷新](/isr)。
 
-如果需要多管理员、用户登录、团队成员或可恢复的站点归属，应接入正式账号系统，并替换 \`lib/access.ts\` 和 \`lib/operator.ts\` 的默认实现。
+## 编辑鉴权
+
+建站时生成随机令牌存入 HttpOnly Cookie，Blob 只存 SHA-256 哈希。每个 Server Action 独立校验令牌和版本号。
+
+## 参考链接
+
+- [平台与多租户](https://makers.edgeone.link/document/platform-and-multi-tenancy)
+- [EdgeOne Middleware](https://makers.edgeone.link/document/middleware)
+- [域名管理概览](https://makers.edgeone.link/document/domain-overview)
+- [添加自定义域名](https://makers.edgeone.link/document/custom-domain)
 `,
 
-  "guide/modes": `Makers 官方方案把多租户交付分为**独立项目模式**和**共享代码模式**。两者不是高低配关系，关键在于租户是否需要独立代码、配置和发布生命周期。
+  isr: `本模板阅读页采用**按需再生（On-demand ISR）**：首次访问生成整页缓存，之后直接返回缓存；没有定时刷新，只有文档或站点设置变更时才失效，下一次访问重新生成。
 
-## 独立项目模式
+## 与 Makers 按需再生的关系
 
-每个租户或应用对应一个 Makers 项目。平台维护业务租户与 Makers 项目的映射，并通过 SDK 或 API 创建项目、触发部署、分配域名。
+Makers 支持 Next.js 的两种 ISR 触发方式：定时再生和按需再生（[官方说明](https://makers.edgeone.link/document/framework-nextjs)）。本模板只用**按需再生**，调用的是同一套 Next.js API——\`revalidatePath\` 和 \`revalidateTag\`。
 
-适合以下情况：
+区别在于触发位置：官方示例由外部系统（CMS、Webhook）带密钥调用一个 Route Handler；本模板的内容都在自己的后台写入，所以在保存、建页、删页、改设置、改域名的 Server Action 里写入成功后直接触发，鉴权用站点编辑令牌。
 
-- 不同租户拥有不同代码或依赖；
-- 环境变量、域名和用量必须项目级隔离；
-- 租户需要独立回滚或发布节奏；
-- 交付对象是 AI Agent、AI 生成应用或白标 SaaS。
+如果以后要接外部 CMS，可以按官方示例再加一个带 \`REVALIDATION_SECRET\` 校验的接口，内部调用 \`lib/invalidation.ts\` 里的函数。
 
-## 共享代码模式
+## 当前配置
 
-多个租户共用一个项目和一套代码，在边缘根据域名、路径或业务上下文识别租户并加载对应数据。租户目录、成员关系、业务数据和应用内权限由业务应用管理。
+| 层级 | 配置位置 | 配置 | 更新方式 |
+| --- | --- | --- | --- |
+| 页面渲染 | \`app/s/[site]/layout.tsx\`、page | \`export const revalidate = false\` | 首次访问生成 HTML/RSC，后续缓存命中；修改后下次访问重新生成 |
+| 数据读取 | \`lib/site.ts\` | \`unstable_cache\` + 缓存标签 | 保存时按 tag 即时失效，不支持按时间兜底 |
+| 读接口 | \`search.json\`、\`sitemap.xml\`、\`robots.txt\` | \`dynamic = "force-dynamic"\` | 每次请求重新生成，数据仍走上面的缓存 |
+| 图片 | \`/assets/[site]/[file]\` | \`Cache-Control: public, max-age=31536000, immutable\` | 文件名随机且不覆盖，长期缓存 |
 
-适合以下情况：
+## 门禁检查流程
 
-- 各租户的功能和页面结构基本一致；
-- 内容或品牌配置不同，但可以统一升级；
-- 希望一次部署更新全部租户；
-- 产品是文档、帮助中心、博客或模板化内容平台。
+中间件在每次请求前执行过期门禁：
 
-## 对比
+1. 读取 site.json 及必要的域名映射，直接使用 \`readJSON\` 不走 Next 缓存；
+2. 检查 \`expiresAt\`，过期返回 404，存储异常返回 503 不放行；
+3. 通过门禁后，页面进入 Next Full Route Cache 流程。
 
-| 维度 | 独立项目 | 共享代码 |
+受保护响应返回 \`Cache-Control: private, no-store, max-age=0\` 和 \`CDN-Cache-Control: no-store\` 防外层浏览器/CDN 缓存绕过门禁。
+
+## 缓存标签与失效
+
+每个标签都带站点标识 \`handle\`，失效时只影响对应站点：
+
+| 标签 | 缓存内容 | 何时失效 |
 | --- | --- | --- |
-| 代码 | 每个项目可不同 | 所有租户共享 |
-| 发布 | 每个项目独立 | 一次发布全部生效 |
-| 域名 | 项目分别管理 | 泛域名加租户映射 |
-| 数据隔离 | 项目边界 | 应用按租户 key 隔离 |
-| 运维规模 | 项目数量随租户增长 | 项目数量固定 |
+| \`site:{handle}\` | 站点配置、导航、主题 | 修改导航、页面标题、外观、域名，删除站点 |
+| \`page:{handle}:{slug}\` | 单个页面正文 | 保存、新建或删除该页面 |
+| \`search:{handle}\` | 搜索索引 | 保存页面、重建索引、删除站点 |
+| \`content:{handle}\` | 整站所有正文和搜索索引数据 | 建站、删站、过期前缀复用时一次性清理 |
 
-## 如何选择
+整页缓存会记录渲染时用到的数据标签，因此数据标签失效时，依赖它的页面也一起失效。由于中间件会把子域名和自有域名改写到内部路由，失效时还会对 \`/s/{handle}/...\` 和 \`/s/{自有域名}/...\` 调用 \`revalidatePath\`。
 
-优先问两个问题：
+## 保存页面时发生什么
 
-1. 租户是否必须独立修改代码或控制发布时间？如果是，选择独立项目模式。
-2. 所有租户是否使用相同产品能力，只替换内容和品牌？如果是，共享代码通常更简单。
+1. Server Action 把新正文写入 Blob；
+2. 正文已写成功但索引失败也 finally 清除缓存，避免永久旧内容；
+3. 调用 \`lib/invalidation.ts\` 失效统一的 site/page/domain 标签和实际内部路径；
+4. 下一次访问重新生成页面。子域名和自有域名共用同一组标签，会同时更新。
 
-> 共享代码不会自动解决登录、权限和数据隔离。生产系统仍需校验租户身份，并确保每次读写都带上可信的租户标识。
+## 域名相关操作
 
-参考：[Makers 平台与多租户官方文档](https://makers.edgeone.link/document/platform-and-multi-tenancy)。
-`,
+Site 布局操作时失效旧、新域名对应的路径。create/delete/reuse 操作清除全部 content、search 及 layout 路径含旧 handle 的缓存。
 
-  "guide/shared-code": `这个模板把共享代码模式拆成路由、数据、缓存和权限四层。每一层都以站点 \`handle\` 作为租户标识。
+## 版本与补丁
 
-## 在边缘识别租户
+本模板锁定 Next.js 15.5.27。该版本存在域名 rewrite ISR bug，项目在构建时通过 \`scripts/patch-next-isr.mjs\` 自动修复。如需升级 Next.js 版本，请复验 ISR 行为是否正常。
 
-Makers Middleware 可以在页面加载前根据域名、路径、Header、Cookie 或查询参数改写请求。这个 Next.js 模板读取 Host，并把站点请求改写到内部的 \`/s/[site]\` 路由：
+## 参考
 
-\`\`\`ts
-const host = getHost(request);
-
-if (host === ROOT_DOMAIN || host === "www." + ROOT_DOMAIN) {
-  return NextResponse.next();
-}
-
-const site = host.endsWith("." + ROOT_DOMAIN)
-  ? host.slice(0, -ROOT_DOMAIN.length - 1)
-  : host;
-
-url.pathname = "/s/" + site + url.pathname;
-return NextResponse.rewrite(url);
-\`\`\`
-
-浏览器地址仍是租户域名，\`/s/[site]\` 只存在于项目内部。中间件只负责可信路由，不读取 Blob，也不执行 Node.js API。
-
-## 按租户组织数据
-
-所有数据共用一个 Blob store，但 key 必须带租户前缀：
-
-\`\`\`text
-sites/[handle]/site.json
-sites/[handle]/pages/[slug].json
-sites/[handle]/search.json
-sites/[handle]/assets/[file]
-sites/[handle]/auth.json
-\`\`\`
-
-自有域名到租户的映射单独存放在 \`domains/[host].json\`。删除站点时按 \`sites/[handle]/\` 前缀清理，避免影响其他租户。
-
-## 精确刷新缓存
-
-阅读端使用 ISR 缓存，并给站点和页面分别加 tag：
-
-\`\`\`text
-site:[handle]
-page:[handle]:[slug]
-search:[handle]
-\`\`\`
-
-保存页面后只失效对应页面、站点元数据或搜索索引。同一租户的子域名和自有域名共享这些 tag，因此内容不会出现两个版本。
-
-## 写操作必须重新鉴权
-
-- 建站时生成随机编辑令牌，浏览器保存 HttpOnly Cookie，Blob 只保存令牌哈希。
-- 每个 Server Action 都重新校验编辑权限和版本号，不能只依赖页面入口或中间件。
-- 导航操作使用白名单解析，上传文件同时校验类型、大小和文件头。
-
-进一步阅读：[EdgeOne Middleware 官方文档](https://makers.edgeone.link/document/middleware)。
-`,
-
-  "guide/domains": `共享代码模式通常用一个平台域名加泛子域名承载所有租户，也可以为长期站点绑定自有域名。
-
-## 配置平台域名
-
-部署时设置平台域名：
-
-\`\`\`bash
-ROOT_DOMAIN=docs.example.com
-\`\`\`
-
-然后把下面两个域名绑定到同一个 Makers 项目：
-
-| 域名 | 用途 |
-| --- | --- |
-| \`docs.example.com\` | 平台首页、后台和平台管理页 |
-| \`*.docs.example.com\` | 租户站点，例如 \`acme.docs.example.com\` |
-
-泛域名只需配置一次。创建站点后，中间件会从 Host 中提取 \`acme\` 并路由到对应租户。
-
-\`ADMIN_PASSWORD\` 不是域名路由的必需配置。只有需要从 \`/ops\` 创建长期站点或登记自有域名时，才需要启用平台管理。
-
-## 接入自有域名
-
-Makers 官方流程包括：
-
-1. 在项目详情的**域名管理**中添加根域名或子域名；
-2. 按控制台提示添加 DNS 记录，验证域名归属权；
-3. 在域名服务商处配置 CNAME；
-4. 等待 SSL 证书和域名状态生效；
-5. 在这个模板的 \`/ops\` 平台管理页，把域名登记到目标站点。
-
-登记完成后，子域名和自有域名读取同一份租户数据。模板会优先用第一个自有域名生成 canonical 和 sitemap。
-
-## 上线检查
-
-- [ ] 平台域名和泛域名都已绑定到当前项目
-- [ ] \`ROOT_DOMAIN\` 与实际平台域名完全一致
-- [ ] 泛域名证书的 DNS 验证已经完成
-- [ ] 如启用平台管理，管理密码使用高强度随机值
-- [ ] 自有域名已经完成归属验证和 CNAME 配置
-- [ ] 根据加速区域确认域名备案要求
-
-> Makers 官方文档说明：中国大陆可用区或全球可用区（含中国大陆）的自定义域名需要完成工信部备案；全球可用区（不含中国大陆）不要求备案。
-
-参考：[域名管理概览](https://makers.edgeone.link/document/domain-overview)与[添加自定义域名](https://makers.edgeone.link/document/custom-domain)。
+- [Next.js：增量静态再生成（ISR）](https://nextjs.org/docs/app/guides/incremental-static-regeneration)
+- [Next.js：revalidateTag](https://nextjs.org/docs/app/api-reference/functions/revalidateTag)
+- [Next.js：unstable_cache](https://nextjs.org/docs/app/api-reference/functions/unstable_cache)
 `,
 };

@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-// 正文是服务端渲染的 HTML，代码块的复制按钮统一用一个监听器处理
+// Content is server-rendered HTML, so a single listener handles all code-block copy buttons
 export function CopyCode() {
   useEffect(() => {
     const onClick = async (event: MouseEvent) => {

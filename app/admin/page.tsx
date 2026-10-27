@@ -1,16 +1,15 @@
-import { BookOpenText, ExternalLink, Plus, ShieldCheck } from "lucide-react";
+import { BookOpenText, ExternalLink, Plus } from "lucide-react";
 import { SiteMark } from "@/components/icon";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@/components/ui/item";
 import { accessibleHandles, hasSiteAccess } from "@/lib/access";
-import { operatorEnabled } from "@/lib/operator";
 import { formatRemaining, isExpired, loadSite, requestHost, subdomainOrigin, type SiteConfig } from "@/lib/site";
 import { brandStyle } from "@/lib/theme";
 
 export const metadata = { title: "我的站点" };
 
-// Cookie 只说明“可能有权限”，逐个核对令牌，再过滤掉已删除和过期的
+// Cookies only suggest access: verify each token, then drop deleted and expired sites
 async function mySites() {
   const handles = await accessibleHandles();
   const sites = await Promise.all(
@@ -34,14 +33,6 @@ export default async function MySitesPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {operatorEnabled() ? (
-            <Button asChild variant="outline">
-              <a href="/ops">
-                <ShieldCheck data-icon="inline-start" />
-                平台管理
-              </a>
-            </Button>
-          ) : null}
           <Button asChild>
             <a href="/">
               <Plus data-icon="inline-start" />
