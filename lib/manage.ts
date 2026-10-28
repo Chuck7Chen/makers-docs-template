@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { after } from "next/server";
 import { createToken, grantSiteAccess, hashToken } from "@/lib/access";
 import { listKeys, readJSON, remove, writeJSON } from "@/lib/blob";
 import { MAX_CLEANUP_PER_RUN, MAX_TEMP_SITES, TEMP_SITE_TTL_MS } from "@/lib/demo";
@@ -46,7 +47,6 @@ export async function createSite(name: string, chosenHandle?: string) {
     }
     if (existing) await deleteSite(chosenHandle);
   }
-  await cleanupTempSites();
   const handle = chosenHandle || (await pickTempHandle());
 
   const now = Date.now();
@@ -78,13 +78,18 @@ export async function createSite(name: string, chosenHandle?: string) {
     site.expiresAt ? writeJSON(keys.expiry(site.expiresAt, handle), {}) : null,
   ]);
   await writeJSON(keys.site(handle), site);
-
-  invalidateSiteCache(handle, site.domains, true);
   await grantSiteAccess(site, token);
+
+  // Cleanup and purging don't hold up the visitor: both run once the response is sent. A chosen prefix may have
+  // belonged to an earlier site, so purge whatever is still cached under it; random prefixes are new
+  after(async () => {
+    if (chosenHandle) invalidateSiteCache(handle, site.domains, true);
+    await cleanupTempSites();
+  });
   return handle;
 }
 
-// Clean up during visitor site creation: delete expired sites first, then the earliest-expiring ones until temporary sites are under the limit
+// Runs after a visitor creates a site: delete expired sites first, then the earliest-expiring ones until demo sites are back within the limit
 async function cleanupTempSites() {
   const entries = (await listKeys("expiry/"))
     .map((key) => {
@@ -96,7 +101,7 @@ async function cleanupTempSites() {
 
   const now = Date.now();
   const expired = entries.filter((entry) => entry.expiresAt <= now).length;
-  const overflow = Math.max(0, entries.length - expired - (MAX_TEMP_SITES - 1));
+  const overflow = Math.max(0, entries.length - expired - MAX_TEMP_SITES);
   const victims = entries.slice(0, Math.min(expired + overflow, MAX_CLEANUP_PER_RUN));
   await Promise.all(victims.map((entry) => deleteSite(entry.handle, entry.key)));
 }

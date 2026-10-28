@@ -2,6 +2,7 @@
 
 import { cn } from "cn";
 import { ArrowLeft, ExternalLink, Eye, SquarePen } from "lucide-react";
+import Link from "next/link";
 import { useActionState, useEffect, useRef, useState, useTransition, type KeyboardEvent } from "react";
 import { previewAction, savePageAction } from "@/app/admin/actions";
 import { Button } from "@/components/ui/button";
@@ -67,8 +68,20 @@ export function Editor(props: Props) {
   useEffect(() => {
     if (!dirty) return;
     const onBeforeUnload = (event: BeforeUnloadEvent) => event.preventDefault();
+    // Client-side navigation (tabs, header, back link) never fires beforeunload, so ask before following a link.
+    // Capture phase runs before next/link's handler, which skips navigation once the default is prevented
+    const onClick = (event: MouseEvent) => {
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const link = (event.target as Element | null)?.closest("a[href]");
+      if (!link || link.getAttribute("target") === "_blank") return;
+      if (!window.confirm("有未保存的修改，确定离开吗？")) event.preventDefault();
+    };
     window.addEventListener("beforeunload", onBeforeUnload);
-    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+    document.addEventListener("click", onClick, true);
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      document.removeEventListener("click", onClick, true);
+    };
   }, [dirty]);
 
   function onKeyDown(event: KeyboardEvent<HTMLFormElement>) {
@@ -124,10 +137,10 @@ export function Editor(props: Props) {
 
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="ghost" size="sm" asChild>
-          <a href={`/admin/${props.handle}`}>
+          <Link href={`/admin/${props.handle}`}>
             <ArrowLeft data-icon="inline-start" />
             全部页面
-          </a>
+          </Link>
         </Button>
         <code className="font-mono text-xs text-muted-foreground">{props.path}</code>
         <div className="ml-auto flex flex-wrap items-center gap-2 text-sm">

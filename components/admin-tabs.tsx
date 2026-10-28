@@ -2,6 +2,7 @@
 
 import { cn } from "cn";
 import { Files, Settings } from "lucide-react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 export function AdminTabs({ handle }: { handle: string }) {
@@ -14,7 +15,7 @@ export function AdminTabs({ handle }: { handle: string }) {
   return (
     <nav className="mt-6 flex gap-6 border-b text-sm">
       {tabs.map(({ href, label, icon: TabIcon, active }) => (
-        <a
+        <Link
           key={href}
           href={href}
           aria-current={active ? "page" : undefined}
@@ -27,7 +28,7 @@ export function AdminTabs({ handle }: { handle: string }) {
         >
           <TabIcon className="size-4" />
           {label}
-        </a>
+        </Link>
       ))}
     </nav>
   );

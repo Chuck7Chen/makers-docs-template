@@ -334,6 +334,8 @@ function MenuTrigger({ tree, title }: { tree: Tree; title: string }) {
 }
 
 function PageRow({ tree, page, pos, parent, first, last }: { tree: Tree; page: NavPage; pos: string; parent: string } & Edges) {
+  // Plain links rather than next/link: the editor opens as its own document, so leaving it with the browser's
+  // back button still fires beforeunload and asks about unsaved changes
   const href = `/admin/${tree.handle}/edit/${page.slug}`;
   const PageIcon = page.slug === "index" ? House : FileText;
   const lead = (

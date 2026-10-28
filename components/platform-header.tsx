@@ -1,4 +1,5 @@
 import { MessageCircle, Plus, Rocket } from "lucide-react";
+import Link from "next/link";
 import { cn } from "cn";
 import { PlatformBrand } from "@/components/platform-brand";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,8 @@ export const GITHUB_URL = "https://github.com/Chuck7Chen/makers-docs-template";
 const DEPLOY_URL =
   "https://console.cloud.tencent.com/edgeone/makers/new?template=docs-multi-tenant-template&from=within&fromAgent=1&agentLang=typescript";
 export const CONTACT_URL = "https://makers.edgeone.link/document/platform-and-multi-tenancy#联系我们";
+
+const HOME_PATH: Record<Language, string> = { zh: "/", en: "/en" };
 
 function GitHubMark() {
   return (
@@ -29,17 +32,17 @@ export function PlatformHeader({ language = "zh", admin = false }: { language?: 
   return (
     <header className={cn("border-b", admin ? "bg-white" : "border-primary/10 bg-[#f2f3ff]")}>
       <div className="flex h-14 w-full items-center gap-3 px-4 sm:px-6">
-        <PlatformBrand href={language === "en" && !admin ? "/?lang=en" : "/"} />
+        <PlatformBrand href={admin ? "/" : HOME_PATH[language]} />
         {admin ? (
           <div className="ml-auto flex items-center gap-1.5">
             <Button asChild variant="ghost" size="sm" className={utilityButton}>
-              <a href="/admin">我的站点</a>
+              <Link href="/admin">我的站点</Link>
             </Button>
             <Button asChild size="sm" className={utilityButton}>
-              <a href="/#create-site">
+              <Link href="/#create-site">
                 <Plus data-icon="inline-start" />
                 新建站点
-              </a>
+              </Link>
             </Button>
           </div>
         ) : (
@@ -49,26 +52,19 @@ export function PlatformHeader({ language = "zh", admin = false }: { language?: 
               role="group"
               aria-label={language === "en" ? "Language" : "语言"}
             >
-              <a
-                href="/"
-                aria-current={language === "zh" ? "page" : undefined}
-                className={cn(
-                  "rounded px-2 py-1 transition-colors",
-                  language === "zh" ? "bg-white font-medium text-zinc-950 shadow-xs" : "text-zinc-500 hover:text-zinc-950",
-                )}
-              >
-                中文
-              </a>
-              <a
-                href="/?lang=en"
-                aria-current={language === "en" ? "page" : undefined}
-                className={cn(
-                  "rounded px-2 py-1 transition-colors",
-                  language === "en" ? "bg-white font-medium text-zinc-950 shadow-xs" : "text-zinc-500 hover:text-zinc-950",
-                )}
-              >
-                EN
-              </a>
+              {(["zh", "en"] as const).map((option) => (
+                <Link
+                  key={option}
+                  href={HOME_PATH[option]}
+                  aria-current={language === option ? "page" : undefined}
+                  className={cn(
+                    "rounded px-2 py-1 transition-colors",
+                    language === option ? "bg-white font-medium text-zinc-950 shadow-xs" : "text-zinc-500 hover:text-zinc-950",
+                  )}
+                >
+                  {option === "zh" ? "中文" : "EN"}
+                </Link>
+              ))}
             </div>
             <Button asChild variant="outline" size="icon-sm" className="size-8 rounded-md" aria-label={text.github}>
               <a href={GITHUB_URL} target="_blank" rel="noreferrer" title={text.github}>

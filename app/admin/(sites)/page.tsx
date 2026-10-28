@@ -1,10 +1,11 @@
 import { BookOpenText, ExternalLink, Plus } from "lucide-react";
+import Link from "next/link";
 import { SiteMark } from "@/components/icon";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@/components/ui/item";
-import { accessibleHandles, hasSiteAccess } from "@/lib/access";
-import { formatRemaining, isExpired, loadSite, requestHost, subdomainOrigin, type SiteConfig } from "@/lib/site";
+import { accessibleHandles, loadEditableSite } from "@/lib/access";
+import { formatRemaining, requestHost, subdomainOrigin, type SiteConfig } from "@/lib/site";
 import { brandStyle } from "@/lib/theme";
 
 export const metadata = { title: "我的站点" };
@@ -12,12 +13,8 @@ export const metadata = { title: "我的站点" };
 // Cookies only suggest access: verify each token, then drop deleted and expired sites
 async function mySites() {
   const handles = await accessibleHandles();
-  const sites = await Promise.all(
-    handles.map(async (handle) => ((await hasSiteAccess(handle)) ? loadSite(handle) : null)),
-  );
-  return sites
-    .filter((site): site is SiteConfig => !!site && !isExpired(site))
-    .sort((a, b) => b.createdAt - a.createdAt);
+  const sites = await Promise.all(handles.map((handle) => loadEditableSite(handle)));
+  return sites.filter((site): site is SiteConfig => !!site).sort((a, b) => b.createdAt - a.createdAt);
 }
 
 export default async function MySitesPage() {
@@ -34,10 +31,10 @@ export default async function MySitesPage() {
         </div>
         <div className="flex items-center gap-2">
           <Button asChild>
-            <a href="/">
+            <Link href="/">
               <Plus data-icon="inline-start" />
               新建站点
-            </a>
+            </Link>
           </Button>
         </div>
       </div>
@@ -53,7 +50,7 @@ export default async function MySitesPage() {
           </EmptyHeader>
           <EmptyContent>
             <Button asChild>
-              <a href="/">去创建</a>
+              <Link href="/">去创建</Link>
             </Button>
           </EmptyContent>
         </Empty>
@@ -87,7 +84,7 @@ export default async function MySitesPage() {
                     </a>
                   </Button>
                   <Button size="sm" asChild>
-                    <a href={`/admin/${site.handle}`}>编辑</a>
+                    <Link href={`/admin/${site.handle}`}>编辑</Link>
                   </Button>
                 </ItemActions>
               </Item>

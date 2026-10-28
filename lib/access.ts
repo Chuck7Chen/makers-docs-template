@@ -1,5 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
+import { cache } from "react";
 import { readJSON } from "@/lib/blob";
 import { UserError } from "@/lib/forms";
 import { isValidHandle } from "@/lib/rules";
@@ -38,11 +39,20 @@ export async function requireSiteAccess(handle: string) {
 }
 
 export async function requireEditableSite(handle: string): Promise<SiteConfig> {
-  await requireSiteAccess(handle);
-  const site = await loadSite(handle);
+  // Read both files at once; the config is only returned after the token checks out
+  const [allowed, site] = await Promise.all([hasSiteAccess(handle), isValidHandle(handle) ? loadSite(handle) : null]);
+  if (!allowed) throw new Error("Forbidden");
   if (!site || isExpired(site)) throw new UserError("站点不存在或已过期");
   return site;
 }
+
+// For admin pages: each page checks access itself instead of trusting the [site] layout, because client-side
+// navigation only renders the segments that change and the layout's check doesn't run again. Shared per request
+export const loadEditableSite = cache(async (handle: string) => {
+  if (!isValidHandle(handle)) return null;
+  const [allowed, site] = await Promise.all([hasSiteAccess(handle), loadSite(handle)]);
+  return allowed && site && !isExpired(site) ? site : null;
+});
 
 // Demo site cookies expire with the site; existing sites without an expiry keep a one-year cookie
 export async function grantSiteAccess(site: SiteConfig, token: string) {

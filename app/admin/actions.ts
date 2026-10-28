@@ -2,6 +2,7 @@
 
 import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { hasSiteAccess, requireEditableSite, requireSiteAccess, revokeSiteAccess } from "@/lib/access";
 import { remove, writeJSON } from "@/lib/blob";
 import { MAX_PAGE_BYTES, MAX_PAGES_PER_TEMP_SITE } from "@/lib/demo";
@@ -21,7 +22,7 @@ import {
 } from "@/lib/manage";
 import { renderMarkdown } from "@/lib/markdown";
 import { applyNavOp, findNavGroup, findNavPage, flattenNav, isGroup, type NavItem, type NavOp } from "@/lib/nav";
-import { isValidDescription, isValidName, isValidSlug, isValidTitle } from "@/lib/rules";
+import { isValidDescription, isValidName, isValidSlug, isValidTitle, ROOT_DOMAIN } from "@/lib/rules";
 import { isTemporary, type PageDoc, type SiteConfig } from "@/lib/site";
 import { isThemeName } from "@/lib/theme";
 
@@ -45,6 +46,10 @@ export async function createSiteAction(_prev: FormState, formData: FormData): Pr
   const name = field(formData, "name");
   const english = field(formData, "language") === "en";
   const chosenHandle = field(formData, "handle").toLowerCase();
+  // The home page is prerendered and can't show this, so the deployer finds out here
+  if (!ROOT_DOMAIN) {
+    return { error: english ? "ROOT_DOMAIN is not configured, so sites can't be created yet." : "还没有配置 ROOT_DOMAIN，暂时无法创建站点" };
+  }
   if (!isValidName(name)) return { error: english ? "Site name must be 1 to 40 characters." : "站点名称需要 1 到 40 个字" };
   let handle: string;
   try {
@@ -170,7 +175,9 @@ export async function savePageAction(prev: SaveState, formData: FormData): Promi
       }
       return { savedAt: Date.now(), version: nextVersion };
     } finally {
-      invalidatePageCache(handle, slug, site.domains);
+      // Purge the reader's cache once the response is sent. Revalidating during the Action would hold the save
+      // for the purge request and make Next re-render this editor page into the response, which the editor ignores
+      after(() => invalidatePageCache(handle, slug, site.domains));
     }
   } catch (e) {
     return { ...prev, error: messageOf(e), savedAt: undefined };

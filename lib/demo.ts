@@ -7,5 +7,5 @@ export const MAX_TEMP_SITES = 100;
 export const MAX_PAGES_PER_TEMP_SITE = 30;
 export const MAX_PAGE_BYTES = 50 * 1024;
 
-// Max sites cleaned up per site creation; a large backlog is cleared over several runs so creation stays fast
+// Max sites cleaned up after each site creation; a large backlog is cleared over several runs
 export const MAX_CLEANUP_PER_RUN = 10;

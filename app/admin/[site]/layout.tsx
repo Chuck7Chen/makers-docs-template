@@ -5,25 +5,24 @@ import { AdminTabs } from "@/components/admin-tabs";
 import { SiteMark } from "@/components/icon";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { hasSiteAccess } from "@/lib/access";
-import { formatRemaining, isExpired, loadSite, requestHost, subdomainOrigin } from "@/lib/site";
+import { loadEditableSite } from "@/lib/access";
+import { formatRemaining, requestHost, subdomainOrigin } from "@/lib/site";
 import { brandStyle } from "@/lib/theme";
 
 type Props = { children: ReactNode; params: Promise<{ site: string }> };
 
 export async function generateMetadata({ params }: Pick<Props, "params">) {
-  const site = await loadSite((await params).site);
+  const site = await loadEditableSite((await params).site);
   return { title: site ? `${site.name} - 后台` : "后台" };
 }
 
-// Every admin page checks the edit token here first; Server Actions check it again on their own
+// Server Actions check the edit token again on their own, and so does every page below (see loadEditableSite)
 export default async function SiteAdminLayout({ children, params }: Props) {
   const { site: handle } = await params;
-  if (!(await hasSiteAccess(handle))) redirect("/admin");
-  const site = await loadSite(handle);
-  if (!site || isExpired(site)) redirect("/admin");
+  const [site, host] = await Promise.all([loadEditableSite(handle), requestHost()]);
+  if (!site) redirect("/admin");
 
-  const origin = subdomainOrigin(handle, await requestHost());
+  const origin = subdomainOrigin(handle, host);
 
   return (
     <div style={brandStyle(site.theme)}>

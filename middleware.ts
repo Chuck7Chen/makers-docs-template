@@ -83,6 +83,13 @@ export async function middleware(req: NextRequest) {
   const host = getHost(req);
   if (host === rootDomain || host === `www.${rootDomain}`) {
     if (pathname === "/s" || pathname.startsWith("/s/")) return new NextResponse(null, { status: 404, headers: PRIVATE_CACHE });
+    // The English home page used to be /?lang=en; it is now the prerendered /en
+    if (pathname === "/" && req.nextUrl.searchParams.get("lang") === "en") {
+      const url = req.nextUrl.clone();
+      url.pathname = "/en";
+      url.search = "";
+      return NextResponse.redirect(url, 308);
+    }
     return NextResponse.next();
   }
   if (pathname === "/s" || pathname.startsWith("/s/")) return new NextResponse(null, { status: 404, headers: PRIVATE_CACHE });

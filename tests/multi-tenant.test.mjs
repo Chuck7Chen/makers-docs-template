@@ -16,6 +16,7 @@ function fixture() {
   const dataCache = new Map();
   const modules = new Map();
   const errors = [];
+  const afterTasks = [];
   let now = 1800000000000;
   let failWrite;
   let edgeReads = 0;
@@ -60,6 +61,7 @@ function fixture() {
       headers: async () => new Headers({ host: "localhost:3000" }),
     },
     "next/navigation": { redirect: (url) => { throw new Error(`REDIRECT:${url}`); } },
+    "next/server": { after: (task) => { afterTasks.push(task); } },
     react: { cache: (fn) => fn },
     "@/lib/markdown": {
       extractSearchEntry: (markdown) => ({ headings: [], text: markdown }),
@@ -94,6 +96,8 @@ function fixture() {
   return {
     objects, cookieJar, manage, site, access, actions, keys, load, errors,
     advance: (ms) => { now += ms; },
+    // Runs the work queued with after(), as Next does once the response has been sent
+    runAfter: async () => { while (afterTasks.length) await afterTasks.shift()(); },
     edgeReads: () => edgeReads,
     failNextWrite: (key) => { failWrite = key; },
     config: (handle) => copy(objects.get(keys.site(handle))),
@@ -185,8 +189,26 @@ test("旧过期标记不能清理复用后的新站点", async () => {
   const staleKey = f.keys.expiry(f.config("acme").expiresAt - TTL, "acme");
   f.objects.set(staleKey, {});
   await f.manage.createSite("Another", "another");
+  await f.runAfter();
   assert.equal(f.config("acme").name, "Acme");
   assert.equal(f.objects.has(staleKey), false);
+});
+
+test("建站不等清理：响应后删除过期站点，再把体验站数量控制在上限内", async () => {
+  const f = fixture();
+  await f.manage.createSite("Expired", "expired");
+  f.advance(TTL);
+  for (let i = 0; i <= 100; i++) {
+    await f.manage.createSite(`Site ${i}`, `site-${i}`);
+    f.advance(1);
+  }
+  assert.ok(f.config("expired"));
+  await f.runAfter();
+  assert.equal(f.config("expired"), null);
+  assert.equal(f.config("site-0"), null);
+  assert.ok(f.config("site-1"));
+  assert.ok(f.config("site-100"));
+  assert.equal([...f.objects.keys()].filter((key) => key.startsWith("expiry/")).length, 100);
 });
 
 test("体验站添加域名不延长有效期，域名和平台前缀均检查占用", async () => {

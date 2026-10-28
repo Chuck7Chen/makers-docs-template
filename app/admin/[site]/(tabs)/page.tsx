@@ -1,14 +1,15 @@
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { NavEditor } from "@/components/nav-editor";
+import { loadEditableSite } from "@/lib/access";
 import { MAX_PAGES_PER_TEMP_SITE } from "@/lib/demo";
-import { isTemporary, loadSite } from "@/lib/site";
+import { isTemporary } from "@/lib/site";
 
 type Props = { params: Promise<{ site: string }> };
 
 export default async function NavEditorPage({ params }: Props) {
   const { site: handle } = await params;
-  const site = await loadSite(handle);
-  if (!site) notFound();
+  const site = await loadEditableSite(handle);
+  if (!site) redirect("/admin");
 
   return (
     <NavEditor

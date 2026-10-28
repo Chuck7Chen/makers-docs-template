@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useSyncExternalStore } from "react";
 import { createSiteAction, type FormState } from "@/app/admin/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,10 +29,19 @@ const TEXT = {
   },
 } as const;
 
-export function CreateSiteForm({ language = "zh", rootDomain }: { language?: "zh" | "en"; rootDomain: string }) {
+const subscribe = () => () => {};
+
+// The home page is prerendered, so the platform domain is read from the address bar instead of ROOT_DOMAIN;
+// middleware only serves the home page at ROOT_DOMAIN and www.ROOT_DOMAIN. Empty until the page hydrates
+function usePlatformDomain() {
+  return useSyncExternalStore(subscribe, () => location.hostname.replace(/^www\./, ""), () => "");
+}
+
+export function CreateSiteForm({ language = "zh" }: { language?: "zh" | "en" }) {
   const [state, formAction, pending] = useActionState(createSiteAction, initialState);
   const [name, setName] = useState("");
   const [handle, setHandle] = useState("");
+  const rootDomain = usePlatformDomain();
   const text = TEXT[language];
 
   return (
@@ -88,7 +97,7 @@ export function CreateSiteForm({ language = "zh", rootDomain }: { language?: "zh
             className="h-full min-w-0 px-3"
           />
           <InputGroupAddon align="inline-end" className="min-w-0 max-w-[60%] font-normal">
-            <span className="truncate font-mono text-xs text-zinc-400">.{rootDomain || "docs.example.com"}</span>
+            <span className="truncate font-mono text-xs text-zinc-400">{rootDomain && `.${rootDomain}`}</span>
           </InputGroupAddon>
         </InputGroup>
       </div>
