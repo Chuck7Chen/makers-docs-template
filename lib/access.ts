@@ -3,7 +3,8 @@ import { cookies } from "next/headers";
 import { readJSON } from "@/lib/blob";
 import { UserError } from "@/lib/forms";
 import { isValidHandle } from "@/lib/rules";
-import { isExpired, keys, loadSite, type SiteConfig } from "@/lib/site";
+import { keys } from "@/lib/keys";
+import { isExpired, loadSite, type SiteConfig } from "@/lib/site";
 
 // The edit token lives only in a browser cookie; Blob stores just its hash
 

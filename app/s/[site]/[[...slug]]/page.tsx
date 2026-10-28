@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { DocLink } from "@/components/doc-link";
 import { renderMarkdown, type Heading } from "@/lib/markdown";
 import { findNavPage, flattenNav, pagePath } from "@/lib/nav";
 import { isValidSlug } from "@/lib/rules";
@@ -69,7 +70,7 @@ export default async function DocPage({ params }: Props) {
   if (!data) notFound();
   const { site, slug, navPage, doc } = data;
 
-  const { html, headings } = renderMarkdown(doc.markdown, site.handle);
+  const { html, headings } = renderMarkdown(doc.markdown);
   const pages = flattenNav(site.nav);
   const index = pages.findIndex((page) => page.slug === slug);
   const prev = pages[index - 1];
@@ -90,19 +91,19 @@ export default async function DocPage({ params }: Props) {
         {prev || next ? (
           <nav className="mt-16 grid gap-4 border-t border-gray-200 pt-6 sm:grid-cols-2">
             {prev ? (
-              <a href={pagePath(prev.slug)} className="rounded-lg border border-gray-200 px-4 py-3 hover:border-gray-300">
+              <DocLink href={pagePath(prev.slug)} className="rounded-lg border border-gray-200 px-4 py-3 hover:border-gray-300">
                 <span className="block text-xs text-gray-500">上一页</span>
                 <span className="font-medium text-gray-900">{prev.title}</span>
-              </a>
+              </DocLink>
             ) : null}
             {next ? (
-              <a
+              <DocLink
                 href={pagePath(next.slug)}
                 className="rounded-lg border border-gray-200 px-4 py-3 text-right hover:border-gray-300 sm:col-start-2"
               >
                 <span className="block text-xs text-gray-500">下一页</span>
                 <span className="font-medium text-gray-900">{next.title}</span>
-              </a>
+              </DocLink>
             ) : null}
           </nav>
         ) : null}

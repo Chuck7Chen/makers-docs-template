@@ -1,15 +1,18 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { PRIVATE_CACHE } from "@/lib/lifecycle";
 import { resolveLiveSiteAtEdge } from "@/lib/lifecycle-edge";
 import { HANDLE_RE } from "@/lib/rules";
 
 // Makers currently only bundles Edge Runtime middleware; the Node runtime produces an empty middleware in production.
+// Keep the matcher as is: Makers falls back to /:path* for patterns with lookaheads such as (?!_next), and treats
+// any pattern containing parentheses as a raw regex, so a narrower matcher saves nothing and can stop matching
 export const config = { matcher: ["/:path*"] };
-
-const PRIVATE_CACHE = {
-  "Cache-Control": "private, no-store, max-age=0",
-  "CDN-Cache-Control": "no-store",
-};
 const LOCAL_LIFECYCLE_PATH = "/api/site-lifecycle/";
+
+// Diagnostics for the Server-Timing header: a random id per edge instance and how many requests it has handled,
+// to tell whether Makers reuses instances (the gate's memory cache only helps when it does)
+const INSTANCE = Math.random().toString(36).slice(2, 8);
+let handled = 0;
 
 function getHost(req: NextRequest) {
   const forwarded = process.env.NODE_ENV === "development" ? req.headers.get("x-forwarded-host") : null;
@@ -30,18 +33,32 @@ async function resolveLocalLifecycle(req: NextRequest, rootDomain: string, ident
   throw new Error(`Local lifecycle endpoint returned ${response.status}`);
 }
 
+// Returns the response headers for this request, plus a 404/503 response when the site must not be served.
+// Server-Timing shows up in the browser's DevTools: how long the gate took and where the site came from
 async function guard(req: NextRequest, rootDomain: string, identifier: string) {
+  const started = Date.now();
+  let source = "local";
+  let status = 0;
   try {
     const localMode = process.env.NODE_ENV === "development" || !!process.env.DOCS_LOCAL_STORE_PATH;
-    const live = localMode
-      ? await resolveLocalLifecycle(req, rootDomain, identifier)
-      : !!(await resolveLiveSiteAtEdge(identifier));
-    if (!live) return new NextResponse(null, { status: 404, headers: PRIVATE_CACHE });
+    let live: boolean;
+    if (localMode) {
+      live = await resolveLocalLifecycle(req, rootDomain, identifier);
+    } else {
+      const result = await resolveLiveSiteAtEdge(identifier);
+      live = !!result.site;
+      source = result.source;
+    }
+    if (!live) status = 404;
   } catch (error) {
     console.error("Site lifecycle lookup failed", error);
-    return new NextResponse(null, { status: 503, headers: PRIVATE_CACHE });
+    status = 503;
   }
-  return null;
+  const headers = {
+    ...PRIVATE_CACHE,
+    "Server-Timing": `gate;dur=${Date.now() - started};desc="${source}", edge;desc="${INSTANCE} #${++handled}"`,
+  };
+  return { headers, blocked: status ? new NextResponse(null, { status, headers }) : null };
 }
 
 export async function middleware(req: NextRequest) {
@@ -58,11 +75,6 @@ export async function middleware(req: NextRequest) {
     process.env.ROOT_DOMAIN || (process.env.NODE_ENV === "development" ? "localhost" : "")
   ).toLowerCase();
 
-  if (pathname.startsWith("/assets/")) {
-    const handle = pathname.split("/")[2] ?? "";
-    const blocked = await guard(req, rootDomain, handle);
-    return blocked ?? NextResponse.next({ headers: PRIVATE_CACHE });
-  }
   if (!rootDomain) {
     if (pathname === "/s" || pathname.startsWith("/s/")) return new NextResponse(null, { status: 404, headers: PRIVATE_CACHE });
     return NextResponse.next();
@@ -80,10 +92,10 @@ export async function middleware(req: NextRequest) {
     site = host.slice(0, -rootDomain.length - 1);
     if (!HANDLE_RE.test(site)) return new NextResponse(null, { status: 404, headers: PRIVATE_CACHE });
   }
-  const blocked = await guard(req, rootDomain, site);
+  const { headers, blocked } = await guard(req, rootDomain, site);
   if (blocked) return blocked;
 
   const url = req.nextUrl.clone();
   url.pathname = `/s/${site}${pathname === "/" ? "" : pathname}`;
-  return NextResponse.rewrite(url, { headers: PRIVATE_CACHE });
+  return NextResponse.rewrite(url, { headers });
 }

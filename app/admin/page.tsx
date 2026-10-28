@@ -70,7 +70,7 @@ export default async function MySitesPage() {
                 style={brandStyle(site.theme)}
               >
                 <ItemMedia>
-                  <SiteMark icon={site.icon} logo={site.logo} size={36} />
+                  <SiteMark icon={site.icon} size={36} />
                 </ItemMedia>
                 <ItemContent className="min-w-0">
                   <ItemTitle>{site.name}</ItemTitle>

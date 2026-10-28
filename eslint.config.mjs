@@ -13,7 +13,7 @@ const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
     rules: {
-      // Sites are separated by domain, so links are plain <a> rather than next/link client navigation
+      // Links that cross domains (admin to a site, platform to a site) must be plain <a>; reader links use components/doc-link
       "@next/next/no-html-link-for-pages": "off",
       // Logos and content images come from Blob with unknown sizes, so next/image is not used
       "@next/next/no-img-element": "off",

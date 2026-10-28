@@ -38,7 +38,7 @@ https://admin.cchen.online
 |---|---|
 | 子域名 | 自选 1-32 位小写字母数字连字符，或随机分配 |
 | 有效期 | 24 小时，最多同时存在 100 个，满了删最早的 |
-| 内容 | 最多 30 页，每页 50 KB，不能上传图片 |
+| 内容 | 最多 30 页，每页 50 KB，不支持图片 |
 | 自有域名 | 可在后台设置中管理 |
 | 展示 | 顶部固定横幅，不让搜索引擎收录 |
 
@@ -64,10 +64,14 @@ Blob 存储由 Makers 在部署时自动提供凭证，无需配置。
 
 - `middleware.ts` 按 Host 改写路径，并执行过期门禁检查：平台域名（`ROOT_DOMAIN` 和 `www.ROOT_DOMAIN`）进入首页和后台；`{handle}.ROOT_DOMAIN` 改写到 `/s/{handle}/...`；其他域名改写到 `/s/{域名}/...`，再查域名映射找到站点。过期返回 404，存储异常返回 503。
 - 阅读端采用 Next Full Route Cache ISR：layout 和 page 都 `export const revalidate = false`，首次访问生成 HTML/RSC，后续缓存命中。数据层使用 `unstable_cache` 加缓存标签隔离租户，保存后按 tag 精确失效。
-- 受保护响应返回 `Cache-Control: private, no-store, max-age=0` 和 `CDN-Cache-Control: no-store`，防止外层缓存绕过门禁。
+- 门禁在每个请求命中 CDN 缓存之前执行，站点过期或删除后不会再返回缓存的页面。门禁自己返回的 404/503 带 `Cache-Control: private, no-store`；通过门禁的页面走 ISR/CDN 缓存。
+- 为了让页面切换更快，每个边缘实例会把有效站点记住 10 秒（`lib/lifecycle-edge.ts`）。删站或解绑域名最多延迟 10 秒生效；24 小时到期仍然精确。
 - 建站时生成一个编辑令牌，浏览器存在 HttpOnly Cookie 里，Blob 只存它的 SHA-256 哈希。只有持有令牌的浏览器能编辑这个站点，不需要登录。
-- 搜索在浏览器里完成：每个站点输出 `/search.json`，打开搜索框时才下载。
+- 搜索在浏览器里完成：每个站点输出 `/search.json`，鼠标移到搜索框或打开搜索时才下载。
+- 阅读端页内切换（`components/doc-link.tsx`）：只请求正文部分，鼠标悬停或键盘聚焦到链接时预取。每次请求仍经过门禁；访问过的页面 30 秒内再访问不发请求（`next.config.ts` 的 `staleTimes`）。
 - 站点主题色用 `--brand` 系列 CSS 变量，避开组件库的 `--primary`。
+- 站点只支持文字：渲染时丢弃 Markdown 里的图片，也没有上传接口。
+- Pages Blob 目前没有条件写入（`onlyIfNew` 不生效），写入都是先查再写。两个访客同一瞬间抢同一个前缀、或同一瞬间保存两个页面时可能互相覆盖；搜索索引可在设置里"重建搜索索引"修复。
 
 数据都在一个 Blob store `docs` 里：
 
@@ -76,7 +80,6 @@ sites/{handle}/site.json          名称、主题名、图标、自有域名、�
 sites/{handle}/pages/{slug}.json  页面正文
 sites/{handle}/search.json        搜索索引
 sites/{handle}/auth.json          编辑令牌的哈希
-sites/{handle}/assets/{file}      图片
 domains/{host}.json               自有域名对应的站点
 expiry/{到期时间}_{handle}          体验站点的过期标记
 ```
@@ -89,17 +92,17 @@ app/
   page.tsx                  平台首页和建站表单
   admin/                    后台：我的站点、目录树、编辑器、设置；actions.ts 是后台的 Server Action
   s/[site]/                 阅读端：布局、阅读页、search.json、sitemap.xml、robots.txt
-  assets/[site]/[file]/     图片，所有域名共用
 components/                 平台头部、目录树、编辑器、搜索框、侧栏等
   ui/                       shadcn/ui 组件，只在后台用
 lib/
   blob.ts                   Blob 读写；本地没有凭证时改用 .blob-local/
   site.ts                   数据类型、Blob key，带缓存 tag 的读取
   nav.ts                    导航的类型和增删改，服务端和目录树共用
-  manage.ts                 建站、删站、过期清理、搜索索引、图片
+  manage.ts                 建站、删站、过期清理、搜索索引
   access.ts                 编辑令牌的签发和校验
   invalidation.ts           统一失效 site/page/domain 标签和实际内部路径
-  lifecycle.ts              resolveLiveSite 强一致性读取和过期检查
+  keys.ts                   Blob key
+  lifecycle.ts              resolveLiveSite：站点查找和过期检查，中间件和页面共用
   markdown.ts               Markdown 渲染和过滤
   rules.ts                  handle、页面地址、域名等校验规则
   demo.ts                   体验站点的有效期和限额

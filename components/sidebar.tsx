@@ -1,3 +1,4 @@
+import { DocLink } from "@/components/doc-link";
 import { isGroup, pagePath, type NavItem, type NavPage } from "@/lib/nav";
 
 // The current-page highlight comes from a style emitted by the page, so the sidebar is page-independent and shared site-wide
@@ -5,13 +6,13 @@ import { isGroup, pagePath, type NavItem, type NavPage } from "@/lib/nav";
 function NavLink({ page }: { page: NavPage }) {
   return (
     <li>
-      <a
+      <DocLink
         href={pagePath(page.slug)}
         data-slug={page.slug}
         className="block rounded-md px-3 py-1.5 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
       >
         {page.title}
-      </a>
+      </DocLink>
     </li>
   );
 }

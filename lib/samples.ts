@@ -64,9 +64,9 @@ export const SAMPLE_PAGES: Record<string, string> = {
 
 1. 修改标题、简介和 Markdown 正文；
 2. 点击**预览**查看效果；
-3. 点击**保存**或按 \`Ctrl+S\` / \`⌘S\`，阅读端立即更新。
+3. 点击**保存**或按 \`Ctrl+S\` / \`⌘S\`，保存即发布。新打开或刷新的阅读页马上就是新内容。
 
-正文支持 GFM 语法：表格、任务列表、删除线、脚注和代码块。体验站点不支持上传图片。
+正文支持 GFM 语法：表格、任务列表、删除线、脚注和代码块。不支持图片，正文里的图片语法不会显示。
 
 ## 下一步
 
@@ -86,7 +86,7 @@ export const SAMPLE_PAGES: Record<string, string> = {
 - 从 10 套预设主题中选择配色，图标和链接高亮色会随之切换；
 - 从预设图标库中选择站点图标，用主题色显示在顶栏。
 
-保存后阅读端立即生效。
+保存即生效，新打开或刷新的阅读页马上显示新外观。
 
 ## 搜索索引
 
@@ -99,7 +99,7 @@ export const SAMPLE_PAGES: Record<string, string> = {
 
   "custom-domain": `体验站点创建后自动获得子域名（如 \`acme.{平台域名}\`），还可以在后台设置中绑定自有域名。
 
-> 绑定自有域名不会延长体验站点的 24 小时有效期，也不会开放图片上传。
+> 绑定自有域名不会延长体验站点的 24 小时有效期。
 
 ## 操作步骤
 
@@ -129,7 +129,7 @@ Makers 控制台配置完成后，回到站点后台：
 
 ## 移除域名
 
-在设置的域名列表中，点击对应域名旁的**移除**按钮即可解除绑定。移除后该域名不再指向本站点。
+在设置的域名列表中，点击对应域名旁的**移除**按钮即可解除绑定。移除后最多 10 秒，该域名不再指向本站点。
 
 ## 注意事项
 
@@ -158,10 +158,10 @@ Makers 控制台配置完成后，回到站点后台：
 
 \`\`\`text
 请求 acme.docs.example.com/guide
-  → Middleware 读取 lib/lifecycle.ts readJSON 检查站点 expiresAt
-  → 过期返回 404，存储异常返回 503
+  → Middleware 按 Host 得到 acme，检查站点是否存在、是否过期（读 Blob）
+  → 不存在或已过期返回 404，存储异常返回 503
   → rewrite 到 /s/acme/guide
-  → 读取该租户的配置和内容
+  → 返回整页缓存；还没有缓存时读取该租户的配置和正文生成
 \`\`\`
 
 平台域名进入首页和后台；租户子域名和自有域名改写到内部的 \`/s/[site]\` 路由。
@@ -176,17 +176,12 @@ sites/{handle}/pages/{slug}.json  页面内容
 sites/{handle}/search.json     搜索索引
 sites/{handle}/auth.json       编辑凭证哈希
 domains/{host}.json            自有域名映射
+expiry/{到期时间}_{handle}        体验站点的过期标记，用于清理
 \`\`\`
 
 ## 缓存与失效
 
-**页面渲染**：layout 和 page 都 \`export const revalidate = false\`，page 保留 \`generateStaticParams\` 返回空数组。首次访问生成 Next Full Route Cache 的 HTML/RSC，后续缓存命中，内容修改后下次访问重新生成（不是每次 SSR）。
-
-**数据层**：通过 \`unstable_cache\` + 缓存标签持久化。保存时按 tag 精确失效，通过 \`lib/invalidation.ts\` 统一失效 site/page/domain 标签和实际内部路径。
-
-**受保护资源**：返回 \`Cache-Control: private, no-store, max-age=0\` 和 \`CDN-Cache-Control: no-store\` 防外层浏览器/CDN 缓存绕过门禁。
-
-详见 [ISR 与缓存刷新](/isr)。
+首次访问生成整页缓存，后续缓存命中；保存时按标签精确失效，下次访问重新生成。阅读端站内链接走客户端路由，切换页面只请求正文数据。中间件在每次请求前检查站点是否存在和过期，通过后才返回缓存。详见 [ISR 与缓存刷新](/isr)。
 
 ## 编辑鉴权
 
@@ -200,67 +195,37 @@ domains/{host}.json            自有域名映射
 - [添加自定义域名](https://makers.edgeone.link/document/custom-domain)
 `,
 
-  isr: `本模板阅读页采用**按需再生（On-demand ISR）**：首次访问生成整页缓存，之后直接返回缓存；没有定时刷新，只有文档或站点设置变更时才失效，下一次访问重新生成。
+  isr: `本模板阅读页采用**按需再生（On-demand ISR）**：首次访问生成整页缓存，之后直接返回缓存；没有定时刷新，只有内容或设置变更时才失效，下一次访问重新生成。
 
-## 与 Makers 按需再生的关系
+## 工作方式
 
-Makers 支持 Next.js 的两种 ISR 触发方式：定时再生和按需再生（[官方说明](https://makers.edgeone.link/document/framework-nextjs)）。本模板只用**按需再生**，调用的是同一套 Next.js API——\`revalidatePath\` 和 \`revalidateTag\`。
+1. 阅读页设置 \`revalidate = false\`，首次访问生成缓存，后续直接返回；
+2. 后台保存、建页、删页、改设置或域名时，调用 \`revalidateTag\` / \`revalidatePath\` 精确失效对应缓存；
+3. 下一次访问重新生成页面。子域名和自有域名共用同一组标签，会同时更新。
 
-区别在于触发位置：官方示例由外部系统（CMS、Webhook）带密钥调用一个 Route Handler；本模板的内容都在自己的后台写入，所以在保存、建页、删页、改设置、改域名的 Server Action 里写入成功后直接触发，鉴权用站点编辑令牌。
+这和 Makers 官方文档里的[按需再生](https://makers.edgeone.link/document/framework-nextjs)用的是同一套 Next.js API，只是触发位置从外部 Webhook 改成了后台的 Server Action。
 
-如果以后要接外部 CMS，可以按官方示例再加一个带 \`REVALIDATION_SECRET\` 校验的接口，内部调用 \`lib/invalidation.ts\` 里的函数。
+## 门禁
 
-## 当前配置
+中间件在每次请求前检查站点是否存在和是否过期，通过后才返回缓存。站点到期或被删除后，即使缓存还在，也不会返回给访客。
 
-| 层级 | 配置位置 | 配置 | 更新方式 |
-| --- | --- | --- | --- |
-| 页面渲染 | \`app/s/[site]/layout.tsx\`、page | \`export const revalidate = false\` | 首次访问生成 HTML/RSC，后续缓存命中；修改后下次访问重新生成 |
-| 数据读取 | \`lib/site.ts\` | \`unstable_cache\` + 缓存标签 | 保存时按 tag 即时失效，不支持按时间兜底 |
-| 读接口 | \`search.json\`、\`sitemap.xml\`、\`robots.txt\` | \`dynamic = "force-dynamic"\` | 每次请求重新生成，数据仍走上面的缓存 |
-| 图片 | \`/assets/[site]/[file]\` | \`Cache-Control: public, max-age=31536000, immutable\` | 文件名随机且不覆盖，长期缓存 |
+## 页内切换
 
-## 门禁检查流程
+阅读端的站内链接走客户端路由，切换页面只请求正文数据，顶栏、侧栏和搜索索引保持不动。已看过的页面 30 秒内再切换不发请求。
 
-中间件在每次请求前执行过期门禁：
+## 排查
 
-1. 读取 site.json 及必要的域名映射，直接使用 \`readJSON\` 不走 Next 缓存；
-2. 检查 \`expiresAt\`，过期返回 404，存储异常返回 503 不放行；
-3. 通过门禁后，页面进入 Next Full Route Cache 流程。
-
-受保护响应返回 \`Cache-Control: private, no-store, max-age=0\` 和 \`CDN-Cache-Control: no-store\` 防外层浏览器/CDN 缓存绕过门禁。
-
-## 缓存标签与失效
-
-每个标签都带站点标识 \`handle\`，失效时只影响对应站点：
-
-| 标签 | 缓存内容 | 何时失效 |
-| --- | --- | --- |
-| \`site:{handle}\` | 站点配置、导航、主题 | 修改导航、页面标题、外观、域名，删除站点 |
-| \`page:{handle}:{slug}\` | 单个页面正文 | 保存、新建或删除该页面 |
-| \`search:{handle}\` | 搜索索引 | 保存页面、重建索引、删除站点 |
-| \`content:{handle}\` | 整站所有正文和搜索索引数据 | 建站、删站、过期前缀复用时一次性清理 |
-
-整页缓存会记录渲染时用到的数据标签，因此数据标签失效时，依赖它的页面也一起失效。由于中间件会把子域名和自有域名改写到内部路由，失效时还会对 \`/s/{handle}/...\` 和 \`/s/{自有域名}/...\` 调用 \`revalidatePath\`。
-
-## 保存页面时发生什么
-
-1. Server Action 把新正文写入 Blob；
-2. 正文已写成功但索引失败也 finally 清除缓存，避免永久旧内容；
-3. 调用 \`lib/invalidation.ts\` 失效统一的 site/page/domain 标签和实际内部路径；
-4. 下一次访问重新生成页面。子域名和自有域名共用同一组标签，会同时更新。
-
-## 域名相关操作
-
-Site 布局操作时失效旧、新域名对应的路径。create/delete/reuse 操作清除全部 content、search 及 layout 路径含旧 handle 的缓存。
+- 线上响应头 \`EO-Cache-Status\` 表示是否命中边缘缓存；
+- 本地 \`next start\` 时，\`x-nextjs-cache\` 的 HIT / MISS 表示是否命中整页缓存；
+- 经过门禁的响应带 \`Server-Timing\`，可以看到门禁耗时。
 
 ## 版本与补丁
 
-本模板锁定 Next.js 15.5.27。该版本存在域名 rewrite ISR bug，项目在构建时通过 \`scripts/patch-next-isr.mjs\` 自动修复。如需升级 Next.js 版本，请复验 ISR 行为是否正常。
+本模板锁定 Next.js 15.5.27。这个版本在中间件改写路径后，会把页面误判为不可缓存，构建时 \`scripts/patch-next-isr.mjs\` 自动修复。升级 Next.js 时需要重新验证 ISR 行为。
 
 ## 参考
 
-- [Next.js：增量静态再生成（ISR）](https://nextjs.org/docs/app/guides/incremental-static-regeneration)
-- [Next.js：revalidateTag](https://nextjs.org/docs/app/api-reference/functions/revalidateTag)
-- [Next.js：unstable_cache](https://nextjs.org/docs/app/api-reference/functions/unstable_cache)
+- [Makers：Next.js ISR 支持](https://makers.edgeone.link/document/framework-nextjs)
+- [Next.js：增量静态再生成](https://nextjs.org/docs/app/guides/incremental-static-regeneration)
 `,
 };

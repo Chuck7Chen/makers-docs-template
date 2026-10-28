@@ -19,11 +19,8 @@ export function Icon({ name, size = 20, className }: { name: string; size?: numb
   );
 }
 
-// Site mark: the uploaded logo if any, otherwise an icon on a theme-colored square
-export function SiteMark({ icon, logo, size = 28 }: { icon: string; logo?: string; size?: number }) {
-  if (logo) {
-    return <img src={logo} alt="" width={size} height={size} className="shrink-0 rounded-md object-contain" />;
-  }
+// Site mark: the site's icon on a theme-colored square
+export function SiteMark({ icon, size = 28 }: { icon: string; size?: number }) {
   return (
     <span
       className="grid shrink-0 place-items-center rounded-md bg-brand text-brand-foreground"

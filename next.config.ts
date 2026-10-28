@@ -14,8 +14,9 @@ export default function nextConfig(phase: string): NextConfig {
     experimental: {
       // radix-ui exports every component from one entry and isn't on Next's default optimize list; without this each admin page ships about 80 KB more
       optimizePackageImports: ["radix-ui"],
-      // Image uploads go through Server Actions; images are capped at 1 MB, plus form overhead, so allow 2 MB
-      serverActions: { bodySizeLimit: "2mb" },
+      // Reader pages navigate client-side, and the browser reuses a visited page this long without asking the server.
+      // The default is 5 minutes; 30 seconds (the minimum) keeps an open reader tab close to what the admin just saved
+      staleTimes: { static: 30 },
     },
   };
 }

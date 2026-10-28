@@ -64,30 +64,26 @@ function tableBlock(table: Element): Element {
   };
 }
 
-// Keep only images uploaded to this site, add copy buttons to code blocks, and collect h2/h3 headings
-function transform(parent: Root | Element, imagePrefix: string, headings: Heading[]) {
+// Drop images (sites cannot host them), add copy buttons to code blocks, and collect h2/h3 headings
+function transform(parent: Root | Element, headings: Heading[]) {
   const children = (parent.children as ElementContent[]).flatMap((child): ElementContent[] => {
     if (child.type !== "element") return [child];
-    if (child.tagName === "img") {
-      if (!String(child.properties.src ?? "").startsWith(imagePrefix)) return [];
-      child.properties.loading = "lazy";
-      return [child];
-    }
+    if (child.tagName === "img") return [];
     if (child.tagName === "pre") return [codeBlock(child)];
     const { id } = child.properties;
     if ((child.tagName === "h2" || child.tagName === "h3") && typeof id === "string" && !hasClass(child, "sr-only")) {
       headings.push({ depth: child.tagName === "h2" ? 2 : 3, id, text: textOf(child) });
     }
-    transform(child, imagePrefix, headings);
+    transform(child, headings);
     return [child.tagName === "table" ? tableBlock(child) : child];
   });
   (parent as Element).children = children;
 }
 
-export function renderMarkdown(markdown: string, handle: string) {
+export function renderMarkdown(markdown: string) {
   const tree = toTree(markdown);
   const headings: Heading[] = [];
-  transform(tree, `/assets/${handle}/`, headings);
+  transform(tree, headings);
   return { html: processor.stringify(tree), headings };
 }
 

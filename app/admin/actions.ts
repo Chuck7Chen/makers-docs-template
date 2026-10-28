@@ -8,22 +8,21 @@ import { MAX_PAGE_BYTES, MAX_PAGES_PER_TEMP_SITE } from "@/lib/demo";
 import { field, messageOf, UserError } from "@/lib/forms";
 import { isIconName } from "@/lib/icons";
 import { invalidatePageCache } from "@/lib/invalidation";
+import { keys } from "@/lib/keys";
 import {
   addSiteDomain,
   createSite,
   deleteSite,
   rebuildSearchIndex,
   removeSiteDomain,
-  removeImage,
   removeSearchEntry,
-  storeImage,
   updateSearchEntry,
   updateSite,
 } from "@/lib/manage";
 import { renderMarkdown } from "@/lib/markdown";
 import { applyNavOp, findNavGroup, findNavPage, flattenNav, isGroup, type NavItem, type NavOp } from "@/lib/nav";
 import { isValidDescription, isValidName, isValidSlug, isValidTitle } from "@/lib/rules";
-import { isTemporary, keys, type PageDoc, type SiteConfig } from "@/lib/site";
+import { isTemporary, type PageDoc, type SiteConfig } from "@/lib/site";
 import { isThemeName } from "@/lib/theme";
 
 // Every Action is a public endpoint, so it checks the edit token first
@@ -51,7 +50,7 @@ export async function createSiteAction(_prev: FormState, formData: FormData): Pr
   try {
     handle = await createSite(name, chosenHandle || undefined);
   } catch (error) {
-    return { error: messageOf(error) };
+    return { error: messageOf(error, english) };
   }
   redirect(`/admin/${handle}`);
 }
@@ -182,19 +181,7 @@ export async function previewAction(handle: string, markdown: string): Promise<{
   try {
     const site = await requireEditableSite(handle);
     checkPageSize(site, markdown);
-    return { html: renderMarkdown(markdown, handle).html };
-  } catch (e) {
-    return { error: messageOf(e) };
-  }
-}
-
-export async function uploadImageAction(handle: string, formData: FormData): Promise<{ url?: string; error?: string }> {
-  try {
-    const site = await requireEditableSite(handle);
-    if (isTemporary(site)) throw new UserError("体验站点不能上传图片");
-    const file = formData.get("file");
-    if (!(file instanceof File)) throw new UserError("请选择图片");
-    return { url: await storeImage(handle, file) };
+    return { html: renderMarkdown(markdown).html };
   } catch (e) {
     return { error: messageOf(e) };
   }
@@ -206,7 +193,7 @@ export async function appearanceAction(formData: FormData): Promise<SettingsResu
   const handle = field(formData, "handle");
   let updated: SiteConfig | undefined;
   try {
-    const site = await requireEditableSite(handle);
+    await requireEditableSite(handle);
     const name = field(formData, "name");
     const description = field(formData, "description");
     const icon = field(formData, "icon");
@@ -216,21 +203,11 @@ export async function appearanceAction(formData: FormData): Promise<SettingsResu
     if (!isIconName(icon)) throw new UserError("请从列表里选择图标");
     if (!isThemeName(theme)) throw new UserError("请从列表里选择主题");
 
-    let logo = site.logo;
-    const file = formData.get("logo");
-    if (file instanceof File && file.size > 0) {
-      if (isTemporary(site)) throw new UserError("体验站点不能上传 logo");
-      logo = await storeImage(handle, file);
-    } else if (formData.get("removeLogo") === "on") {
-      logo = undefined;
-    }
-
     updated = await updateSite(handle, Number(field(formData, "version")), (draft) => {
       Object.assign(draft, { name, description, icon, theme });
-      if (logo) draft.logo = logo;
-      else delete draft.logo;
+      // Logos are no longer supported; drop any left over from older data
+      delete draft.logo;
     });
-    if (site.logo && site.logo !== logo) await removeImage(handle, site.logo);
     return { site: updated, message: "外观已保存" };
   } catch (e) {
     return { error: messageOf(e), site: updated };

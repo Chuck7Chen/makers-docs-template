@@ -1,12 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { resolveLiveSite } from "@/lib/lifecycle";
+import { readJSON } from "@/lib/blob";
+import { PRIVATE_CACHE, resolveLiveSite, storeReaders } from "@/lib/lifecycle";
 
 export const dynamic = "force-dynamic";
-
-const PRIVATE_CACHE = {
-  "Cache-Control": "private, no-store, max-age=0",
-  "CDN-Cache-Control": "no-store",
-};
 
 type Props = { params: Promise<{ identifier: string }> };
 
@@ -19,7 +15,7 @@ export async function GET(request: NextRequest, { params }: Props) {
   try {
     const { identifier } = await params;
     return new NextResponse(null, {
-      status: (await resolveLiveSite(identifier)) ? 204 : 404,
+      status: (await resolveLiveSite(identifier, storeReaders(readJSON))) ? 204 : 404,
       headers: PRIVATE_CACHE,
     });
   } catch (error) {

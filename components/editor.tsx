@@ -1,17 +1,9 @@
 "use client";
 
 import { cn } from "cn";
-import { ArrowLeft, ExternalLink, Eye, ImagePlus, SquarePen } from "lucide-react";
-import {
-  useActionState,
-  useEffect,
-  useRef,
-  useState,
-  useTransition,
-  type ChangeEvent,
-  type KeyboardEvent,
-} from "react";
-import { previewAction, savePageAction, uploadImageAction } from "@/app/admin/actions";
+import { ArrowLeft, ExternalLink, Eye, SquarePen } from "lucide-react";
+import { useActionState, useEffect, useRef, useState, useTransition, type KeyboardEvent } from "react";
+import { previewAction, savePageAction } from "@/app/admin/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
@@ -28,8 +20,6 @@ type Props = {
   version: number;
   // Content size limit for demo sites; null for long-lived sites created by platform admins
   maxBytes: number | null;
-  // Only long-lived sites created by platform admins can upload images; null otherwise
-  maxImageBytes: number | null;
 };
 
 type Snapshot = { title: string; description: string; markdown: string };
@@ -53,7 +43,6 @@ export function Editor(props: Props) {
   const [preview, setPreview] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [previewing, startPreview] = useTransition();
-  const [uploading, startUpload] = useTransition();
   const [state, formAction, saving] = useActionState(savePageAction, { version: props.version });
 
   // After a successful save, record the submitted content as saved to detect unsaved changes
@@ -70,8 +59,6 @@ export function Editor(props: Props) {
   }
 
   const formRef = useRef<HTMLFormElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   const bytes = encoder.encode(markdown).length;
   const tooLarge = props.maxBytes !== null && bytes > props.maxBytes;
@@ -100,37 +87,6 @@ export function Editor(props: Props) {
       const result = await previewAction(props.handle, markdown);
       setNotice(result.error ?? null);
       if (result.html !== undefined) setPreview(previewDocument(result.html));
-    });
-  }
-
-  // Images get their own paragraph: add blank lines around them, otherwise they merge into the adjacent text
-  function insertBlock(text: string) {
-    const textarea = textareaRef.current;
-    const start = textarea?.selectionStart ?? markdown.length;
-    const end = textarea?.selectionEnd ?? markdown.length;
-    setMarkdown((current) => {
-      const before = current.slice(0, start);
-      const after = current.slice(end);
-      const lead = before ? "\n".repeat(Math.max(0, 2 - /\n*$/.exec(before)![0].length)) : "";
-      const tail = "\n".repeat(Math.max(0, (after ? 2 : 1) - /^\n*/.exec(after)![0].length));
-      return before + lead + text + tail + after;
-    });
-  }
-
-  function onPickImage(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file || props.maxImageBytes === null) return;
-    if (file.size > props.maxImageBytes) {
-      setNotice(`图片不能超过 ${props.maxImageBytes / 1024 / 1024} MB`);
-      return;
-    }
-    const data = new FormData();
-    data.set("file", file);
-    startUpload(async () => {
-      const result = await uploadImageAction(props.handle, data);
-      setNotice(result.error ?? null);
-      if (result.url) insertBlock(`![${file.name.replace(/\.[^.]+$/, "").replace(/[[\]]/g, "")}](${result.url})`);
     });
   }
 
@@ -181,17 +137,6 @@ export function Editor(props: Props) {
             {preview !== null ? <SquarePen data-icon="inline-start" /> : <Eye data-icon="inline-start" />}
             {preview !== null ? "继续编辑" : previewing ? "生成预览…" : "预览"}
           </Button>
-          {props.maxImageBytes !== null ? (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => fileRef.current?.click()}
-              disabled={uploading || preview !== null}
-            >
-              <ImagePlus data-icon="inline-start" />
-              {uploading ? "上传中…" : "插入图片"}
-            </Button>
-          ) : null}
           <Button type="submit" disabled={saving || tooLarge}>
             {saving ? <Spinner data-icon="inline-start" /> : null}
             {saving ? "保存中…" : "保存"}
@@ -220,7 +165,6 @@ export function Editor(props: Props) {
       />
 
       <Textarea
-        ref={textareaRef}
         name="markdown"
         value={markdown}
         onChange={(event) => setMarkdown(event.target.value)}
@@ -239,14 +183,6 @@ export function Editor(props: Props) {
           {props.maxBytes !== null ? ` / ${formatBytes(props.maxBytes)}` : ""}
         </span>
       </div>
-
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/png,image/jpeg,image/gif,image/webp"
-        hidden
-        onChange={onPickImage}
-      />
     </form>
   );
 }

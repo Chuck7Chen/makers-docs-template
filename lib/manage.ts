@@ -1,15 +1,17 @@
 import { randomBytes } from "node:crypto";
 import { createToken, grantSiteAccess, hashToken } from "@/lib/access";
-import { listKeys, readJSON, remove, writeBytes, writeJSON } from "@/lib/blob";
-import { MAX_CLEANUP_PER_RUN, MAX_IMAGE_BYTES, MAX_TEMP_SITES, TEMP_SITE_TTL_MS } from "@/lib/demo";
+import { listKeys, readJSON, remove, writeJSON } from "@/lib/blob";
+import { MAX_CLEANUP_PER_RUN, MAX_TEMP_SITES, TEMP_SITE_TTL_MS } from "@/lib/demo";
 import { UserError } from "@/lib/forms";
 import { DEFAULT_ICON } from "@/lib/icons";
 import { invalidateDomainCache, invalidateSiteCache } from "@/lib/invalidation";
+import { keys } from "@/lib/keys";
+import type { DomainMapping } from "@/lib/lifecycle";
 import { extractSearchEntry } from "@/lib/markdown";
 import { flattenNav } from "@/lib/nav";
 import { isReservedHandle, isValidHandle, isValidHost, ROOT_DOMAIN } from "@/lib/rules";
 import { SAMPLE_NAV, SAMPLE_PAGES } from "@/lib/samples";
-import { IMAGE_FILE_RE, isExpired, keys, type DomainMapping, type PageDoc, type SearchIndex, type SiteConfig } from "@/lib/site";
+import { isExpired, type PageDoc, type SearchIndex, type SiteConfig } from "@/lib/site";
 import { DEFAULT_THEME } from "@/lib/theme";
 
 // Write operations. Except for public site creation, callers verify the site's edit token first.
@@ -32,11 +34,16 @@ async function pickTempHandle() {
 
 export async function createSite(name: string, chosenHandle?: string) {
   if (chosenHandle && (!isValidHandle(chosenHandle) || isReservedHandle(chosenHandle))) {
-    throw new UserError("域名前缀需为 1 到 32 位小写字母、数字或连字符，不能使用保留名称");
+    throw new UserError(
+      "域名前缀需为 1 到 32 位小写字母、数字或连字符，不能使用保留名称",
+      "The subdomain must be 1 to 32 lowercase letters, digits or hyphens, and cannot be a reserved name.",
+    );
   }
   if (chosenHandle) {
     const existing = await readJSON<SiteConfig>(keys.site(chosenHandle));
-    if (existing && !isExpired(existing)) throw new UserError("这个域名前缀已被占用，请换一个");
+    if (existing && !isExpired(existing)) {
+      throw new UserError("这个域名前缀已被占用，请换一个", "This subdomain is already taken. Please choose another.");
+    }
     if (existing) await deleteSite(chosenHandle);
   }
   await cleanupTempSites();
@@ -207,34 +214,4 @@ export async function rebuildSearchIndex(site: SiteConfig) {
     if (doc) index[page.slug] = extractSearchEntry(doc.markdown);
   });
   await writeJSON(keys.search(site.handle), index);
-}
-
-function ascii(bytes: Uint8Array, start: number, end: number) {
-  return String.fromCharCode(...bytes.subarray(start, end));
-}
-
-// Detect the type from file magic bytes, not the file name or browser MIME; SVG is rejected
-function detectImageType(bytes: Uint8Array) {
-  if (bytes[0] === 0x89 && ascii(bytes, 1, 4) === "PNG") return "png";
-  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "jpg";
-  if (ascii(bytes, 0, 6) === "GIF87a" || ascii(bytes, 0, 6) === "GIF89a") return "gif";
-  if (ascii(bytes, 0, 4) === "RIFF" && ascii(bytes, 8, 12) === "WEBP") return "webp";
-  return null;
-}
-
-export async function storeImage(handle: string, file: File) {
-  if (file.size === 0) throw new UserError("请选择图片");
-  if (file.size > MAX_IMAGE_BYTES) throw new UserError(`图片不能超过 ${MAX_IMAGE_BYTES / 1024 / 1024} MB`);
-  const data = await file.arrayBuffer();
-  const ext = detectImageType(new Uint8Array(data, 0, Math.min(12, data.byteLength)));
-  if (!ext) throw new UserError("只支持 PNG、JPEG、GIF 和 WebP 图片");
-  const name = `${randomBytes(12).toString("hex")}.${ext}`;
-  await writeBytes(keys.asset(handle, name), data);
-  return `/assets/${handle}/${name}`;
-}
-
-export async function removeImage(handle: string, url: string) {
-  const prefix = `/assets/${handle}/`;
-  const file = url.slice(prefix.length);
-  if (url.startsWith(prefix) && IMAGE_FILE_RE.test(file)) await remove(keys.asset(handle, file));
 }

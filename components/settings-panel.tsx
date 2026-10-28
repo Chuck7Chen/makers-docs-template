@@ -9,12 +9,9 @@ import { Icon } from "@/components/icon";
 import { SubmitButton } from "@/components/submit-button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { MAX_IMAGE_BYTES } from "@/lib/demo";
 import { ICON_NAMES } from "@/lib/icons";
 import type { SiteConfig } from "@/lib/site";
 import { brandStyle, resolveTheme, THEME_NAMES, THEMES } from "@/lib/theme";
@@ -43,9 +40,7 @@ export function SettingsPanel({ initialSite, initialError }: Props) {
   const submitting = useRef(false);
   const notifiedError = useRef<string | undefined>(undefined);
   const handle = site.handle;
-  const temporary = site.expiresAt !== undefined;
   const theme = appearance.theme;
-  const contents = temporary ? "所有页面和设置" : "所有页面、图片和设置";
 
   useEffect(() => {
     if (initialError && initialError !== notifiedError.current) {
@@ -80,7 +75,6 @@ export function SettingsPanel({ initialSite, initialError }: Props) {
 
   return (
     <fieldset disabled={pending} className="min-w-0 space-y-6 border-0 p-0">
-
       <Card>
         <CardHeader className="border-b">
           <CardTitle>外观</CardTitle>
@@ -154,35 +148,6 @@ export function SettingsPanel({ initialSite, initialError }: Props) {
                 </div>
               </FieldSet>
 
-              {temporary ? null : (
-                <Field>
-                  <FieldLabel htmlFor="site-logo">Logo</FieldLabel>
-                  <FieldDescription>
-                    上传后代替图标显示。PNG、JPEG、GIF 或 WebP，不超过 {MAX_IMAGE_BYTES / 1024 / 1024} MB。
-                  </FieldDescription>
-                  <div className="flex flex-wrap items-center gap-4">
-                    {site.logo ? (
-                      <>
-                        <img src={site.logo} alt="当前 logo" className="size-10 rounded-md border object-contain" />
-                        <div className="flex items-center gap-2">
-                          <Checkbox id="remove-logo" name="removeLogo" />
-                          <Label htmlFor="remove-logo" className="font-normal">
-                            移除 logo
-                          </Label>
-                        </div>
-                      </>
-                    ) : null}
-                    <Input
-                      id="site-logo"
-                      type="file"
-                      name="logo"
-                      accept="image/png,image/jpeg,image/gif,image/webp"
-                      className="w-auto max-w-xs"
-                    />
-                  </div>
-                </Field>
-              )}
-
               <div>
                 <SubmitButton pendingText="保存中…">保存外观</SubmitButton>
               </div>
@@ -194,7 +159,7 @@ export function SettingsPanel({ initialSite, initialError }: Props) {
       <Card>
         <CardHeader className="border-b">
           <CardTitle>域名</CardTitle>
-          <CardDescription>体验站点也可以接入自定义域名。登记域名不会延长有效期，也不会开放图片上传。</CardDescription>
+          <CardDescription>体验站点也可以接入自定义域名。登记域名不会延长有效期。</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <Field>
@@ -278,13 +243,13 @@ export function SettingsPanel({ initialSite, initialError }: Props) {
       <Card className="ring-destructive/25">
         <CardHeader>
           <CardTitle>删除站点</CardTitle>
-          <CardDescription>删除后{contents}都会清除，无法恢复。</CardDescription>
+          <CardDescription>删除后所有页面和设置都会清除，无法恢复。</CardDescription>
           <CardAction>
             <form action={deleteSiteAction}>
               <input type="hidden" name="handle" value={handle} />
               <ConfirmButton
                 title={`删除站点“${site.name}”？`}
-                description={`${contents}都会清除，无法恢复。`}
+                description="所有页面和设置都会清除，无法恢复。"
                 confirmText="删除站点"
               >
                 删除站点

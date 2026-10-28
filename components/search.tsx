@@ -1,6 +1,8 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { DocLink } from "@/components/doc-link";
 import { createPortal } from "react-dom";
 
 type Entry = { url: string; title: string; headings: string[]; text: string };
@@ -8,7 +10,7 @@ type Result = { url: string; title: string; snippet: string; score: number };
 
 let indexPromise: Promise<Entry[]> | null = null;
 
-// Download the index the first time search opens, once per page
+// Download the index once per page, starting as soon as the user reaches for the search button
 function loadIndex() {
   indexPromise ??= fetch("/search.json")
     .then((response) => (response.ok ? response.json() : { pages: [] }))
@@ -62,6 +64,7 @@ export function Search() {
   const [active, setActive] = useState(0);
   const [entries, setEntries] = useState<Entry[] | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
 
   const results = entries ? search(entries, query) : [];
 
@@ -97,7 +100,8 @@ export function Search() {
       const step = event.key === "ArrowDown" ? 1 : -1;
       setActive((active + step + results.length) % results.length);
     } else if (event.key === "Enter" && results[active]) {
-      window.location.href = results[active].url;
+      router.push(results[active].url);
+      close();
     }
   }
 
@@ -106,6 +110,8 @@ export function Search() {
       <button
         type="button"
         onClick={() => setOpen(true)}
+        onPointerEnter={loadIndex}
+        onFocus={loadIndex}
         className="flex w-40 items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-500 hover:border-gray-300 sm:w-56"
       >
         <SearchIcon />
@@ -154,8 +160,9 @@ export function Search() {
                     <ul>
                       {results.map((result, i) => (
                         <li key={result.url}>
-                          <a
+                          <DocLink
                             href={result.url}
+                            onClick={close}
                             onMouseEnter={() => setActive(i)}
                             className={`block rounded-lg px-3 py-2 ${i === active ? "bg-gray-100" : ""}`}
                           >
@@ -163,7 +170,7 @@ export function Search() {
                             {result.snippet ? (
                               <p className="mt-0.5 line-clamp-2 text-xs text-gray-500">{result.snippet}</p>
                             ) : null}
-                          </a>
+                          </DocLink>
                         </li>
                       ))}
                     </ul>

@@ -20,7 +20,7 @@ export function isReservedHandle(value: string) {
 
 export function isValidSlug(slug: string) {
   const parts = slug.split("/");
-  return parts.length <= 3 && parts[0] !== "assets" && parts.every((part) => HANDLE_RE.test(part));
+  return parts.length <= 3 && parts.every((part) => HANDLE_RE.test(part));
 }
 
 export function isValidHost(value: string) {

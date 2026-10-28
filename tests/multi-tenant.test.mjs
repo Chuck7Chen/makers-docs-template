@@ -18,6 +18,7 @@ function fixture() {
   const errors = [];
   let now = 1800000000000;
   let failWrite;
+  let edgeReads = 0;
   class Clock extends Date {
     static now() { return now; }
   }
@@ -32,9 +33,11 @@ function fixture() {
         }
         objects.set(key, copy(value));
       },
-      writeBytes: async (key, value) => objects.set(key, value),
       remove: async (key) => objects.delete(key),
       listKeys: async (prefix) => [...objects.keys()].filter((key) => key.startsWith(prefix)),
+    },
+    "@edgeone/pages-blob": {
+      getStore: () => ({ get: async (key) => { edgeReads++; return copy(objects.get(key)); } }),
     },
     "next/cache": {
       revalidatePath: () => {},
@@ -87,11 +90,13 @@ function fixture() {
   const site = load("@/lib/site");
   const access = load("@/lib/access");
   const actions = load("@/app/admin/actions");
+  const { keys } = load("@/lib/keys");
   return {
-    objects, cookieJar, manage, site, access, actions, load, errors,
+    objects, cookieJar, manage, site, access, actions, keys, load, errors,
     advance: (ms) => { now += ms; },
+    edgeReads: () => edgeReads,
     failNextWrite: (key) => { failWrite = key; },
-    config: (handle) => copy(objects.get(site.keys.site(handle))),
+    config: (handle) => copy(objects.get(keys.site(handle))),
   };
 }
 
@@ -121,10 +126,10 @@ test("重复前缀不覆盖站点或编辑凭证；非法及保留前缀被拒�
   const f = fixture();
   await f.manage.createSite("Original", "acme");
   const original = f.config("acme");
-  const auth = f.objects.get(f.site.keys.auth("acme"));
+  const auth = f.objects.get(f.keys.auth("acme"));
   await assert.rejects(f.manage.createSite("Other", "acme"), /已被占用/);
   assert.deepEqual(f.config("acme"), original);
-  assert.deepEqual(f.objects.get(f.site.keys.auth("acme")), auth);
+  assert.deepEqual(f.objects.get(f.keys.auth("acme")), auth);
   for (const handle of ["www", "admin", "api", "app", "-abc", "abc-", "a.b", "a".repeat(33)]) {
     await assert.rejects(f.manage.createSite("Invalid", handle), /域名前缀/);
   }
@@ -133,10 +138,14 @@ test("重复前缀不覆盖站点或编辑凭证；非法及保留前缀被拒�
 test("站点名称允许重复，仅域名前缀检查占用且重试不覆盖原站点", async () => {
   const f = fixture();
   await f.manage.createSite("同名文档站", "acme");
-  const auth = structuredClone(f.objects.get(f.site.keys.auth("acme")));
+  const auth = structuredClone(f.objects.get(f.keys.auth("acme")));
   const conflict = await f.actions.createSiteAction({}, form({ name: "同名文档站", handle: "ACME" }));
   assert.match(conflict.error, /域名前缀已被占用/);
-  assert.deepEqual(f.objects.get(f.site.keys.auth("acme")), auth);
+  const english = await f.actions.createSiteAction({}, form({ name: "Same", handle: "acme", language: "en" }));
+  assert.match(english.error, /already taken/);
+  const reserved = await f.actions.createSiteAction({}, form({ name: "Same", handle: "admin", language: "en" }));
+  assert.match(reserved.error, /reserved name/);
+  assert.deepEqual(f.objects.get(f.keys.auth("acme")), auth);
   await assert.rejects(f.actions.createSiteAction(conflict, form({ name: "同名文档站", handle: "acme-two" })), /REDIRECT:\/admin\/acme-two$/);
   assert.equal(f.config("acme").name, "同名文档站");
   assert.equal(f.config("acme-two").name, "同名文档站");
@@ -156,13 +165,13 @@ test("过期前缀可复用，旧凭证、域名、内容和过期标记不会�
   const old = f.config("acme");
   const oldCookie = f.cookieJar.get("edit_acme");
   await f.manage.addSiteDomain("acme", old.version, "docs.acme.test");
-  f.objects.set(f.site.keys.page("acme", "old-page"), { markdown: "private old content" });
+  f.objects.set(f.keys.page("acme", "old-page"), { markdown: "private old content" });
   f.advance(TTL);
   await f.manage.createSite("New", "acme");
   assert.equal(f.config("acme").name, "New");
-  assert.equal(f.objects.has(f.site.keys.page("acme", "old-page")), false);
-  assert.equal(f.objects.has(f.site.keys.domain("docs.acme.test")), false);
-  assert.equal(f.objects.has(f.site.keys.expiry(old.expiresAt, "acme")), false);
+  assert.equal(f.objects.has(f.keys.page("acme", "old-page")), false);
+  assert.equal(f.objects.has(f.keys.domain("docs.acme.test")), false);
+  assert.equal(f.objects.has(f.keys.expiry(old.expiresAt, "acme")), false);
   const newCookie = f.cookieJar.get("edit_acme");
   f.cookieJar.set("edit_acme", oldCookie);
   assert.equal(await f.access.hasSiteAccess("acme"), false);
@@ -173,7 +182,7 @@ test("过期前缀可复用，旧凭证、域名、内容和过期标记不会�
 test("旧过期标记不能清理复用后的新站点", async () => {
   const f = fixture();
   await f.manage.createSite("Acme", "acme");
-  const staleKey = f.site.keys.expiry(f.config("acme").expiresAt - TTL, "acme");
+  const staleKey = f.keys.expiry(f.config("acme").expiresAt - TTL, "acme");
   f.objects.set(staleKey, {});
   await f.manage.createSite("Another", "another");
   assert.equal(f.config("acme").name, "Acme");
@@ -209,8 +218,8 @@ test("域名 Action 拒绝跨站编辑和移除", async () => {
   assert.equal(added.error, "操作失败，请稍后重试");
   assert.equal(removed.error, "操作失败，请稍后重试");
   assert.match(foreign.error, /不属于当前站点/);
-  assert.equal(f.objects.has(f.site.keys.domain("other.acme.test")), false);
-  assert.equal(f.objects.get(f.site.keys.domain("docs.acme.test")).handle, "alpha");
+  assert.equal(f.objects.has(f.keys.domain("other.acme.test")), false);
+  assert.equal(f.objects.get(f.keys.domain("docs.acme.test")).handle, "alpha");
   assert.equal(f.errors.length, 2);
   assert.ok(f.errors.every(([error]) => error.message === "Forbidden"));
 });
@@ -244,10 +253,10 @@ test("版本冲突和站点配置写入失败不留下域名映射", async () =>
   const f = fixture();
   await f.manage.createSite("Acme", "acme");
   await assert.rejects(f.manage.addSiteDomain("acme", 0, "docs.acme.test"), /刷新/);
-  assert.equal(f.objects.has(f.site.keys.domain("docs.acme.test")), false);
-  f.failNextWrite(f.site.keys.site("acme"));
+  assert.equal(f.objects.has(f.keys.domain("docs.acme.test")), false);
+  f.failNextWrite(f.keys.site("acme"));
   await assert.rejects(f.manage.addSiteDomain("acme", 1, "docs.acme.test"), /storage unavailable/);
-  assert.equal(f.objects.has(f.site.keys.domain("docs.acme.test")), false);
+  assert.equal(f.objects.has(f.keys.domain("docs.acme.test")), false);
   assert.equal(f.config("acme").domains.length, 0);
 });
 
@@ -297,19 +306,52 @@ test("设置连续操作返回最新版本，无需页面跳转且不覆盖其�
   assert.equal(f.config("acme").name, "Updated");
 });
 
-test("体验站保持正文图片和 Logo 上传禁用，以及正文大小限制", async () => {
+test("体验站正文大小限制，保存外观会清掉旧数据里的 logo", async () => {
   const f = fixture();
   await f.manage.createSite("Acme", "acme");
-  const image = new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], "test.png", { type: "image/png" });
-  assert.match((await f.actions.uploadImageAction("acme", form({ file: image }))).error, /不能上传图片/);
-  const appearance = await f.actions.appearanceAction(form({
-    handle: "acme", version: 1, name: "Acme", description: "", theme: "blue", icon: f.config("acme").icon, logo: image,
-  }));
-  assert.match(appearance.error, /不能上传 logo/);
   const slug = Object.keys(f.load("@/lib/samples").SAMPLE_PAGES)[0];
   const saved = await f.actions.savePageAction({ version: 1 }, form({
     handle: "acme", slug, version: 1, title: "Page", markdown: "x".repeat(50 * 1024 + 1),
   }));
   assert.match(saved.error, /50 KB/);
-  assert.equal([...f.objects.keys()].some((key) => key.includes("/assets/")), false);
+  f.objects.set(f.keys.site("acme"), { ...f.config("acme"), logo: "/assets/acme/012345678901234567890123.png" });
+  const appearance = await f.actions.appearanceAction(form({
+    handle: "acme", version: 1, name: "Acme", description: "", theme: "blue", icon: f.config("acme").icon,
+  }));
+  assert.equal(appearance.site.logo, undefined);
+  assert.equal("logo" in f.config("acme"), false);
+});
+
+test("边缘门禁记住有效站点 10 秒：删除最多延迟 10 秒，到期仍然精确，不存在的站点不记", async () => {
+  const f = fixture();
+  const { resolveLiveSiteAtEdge } = f.load("@/lib/lifecycle-edge");
+  const resolve = async (identifier) => {
+    const { site, source } = await resolveLiveSiteAtEdge(identifier);
+    return site ? `${site.handle}:${source}` : null;
+  };
+  await f.manage.createSite("Acme", "acme");
+  await f.manage.addSiteDomain("acme", 1, "docs.acme.test");
+
+  assert.equal(await resolve("acme"), "acme:blob");
+  assert.equal(await resolve("docs.acme.test"), "acme:blob");
+  const reads = f.edgeReads();
+  assert.equal(await resolve("acme"), "acme:memory");
+  assert.equal(await resolve("docs.acme.test"), "acme:memory");
+  assert.equal(f.edgeReads(), reads);
+
+  await f.manage.deleteSite("acme");
+  f.advance(9999);
+  assert.equal(await resolve("acme"), "acme:memory");
+  f.advance(1);
+  assert.equal(await resolve("acme"), null);
+  assert.equal(await resolve("docs.acme.test"), null);
+
+  assert.equal(await resolve("ghost"), null);
+  await f.manage.createSite("Ghost", "ghost");
+  assert.equal(await resolve("ghost"), "ghost:blob");
+
+  f.advance(TTL - 5000);
+  assert.equal(await resolve("ghost"), "ghost:blob");
+  f.advance(5000);
+  assert.equal(await resolve("ghost"), null);
 });

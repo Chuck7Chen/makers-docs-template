@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
+import { ContentLinks } from "@/components/content-links";
 import { CopyCode } from "@/components/copy-code";
+import { DocLink } from "@/components/doc-link";
 import { SiteMark } from "@/components/icon";
 import { Search } from "@/components/search";
 import { Sidebar } from "@/components/sidebar";
@@ -20,7 +22,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: { default: site.name, template: `%s - ${site.name}` },
     description: site.description || undefined,
-    icons: { icon: site.logo ?? faviconDataUri(site.icon, site.theme) },
+    icons: { icon: faviconDataUri(site.icon, site.theme) },
     robots: isTemporary(site) ? { index: false, follow: false } : undefined,
   };
 }
@@ -39,10 +41,10 @@ export default async function SiteLayout({ children, params }: Props & { childre
 
       <header className="sticky top-0 z-30 border-b border-gray-200 bg-white/90 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-4 sm:px-6">
-          <a href="/" className="flex min-w-0 items-center gap-2.5 font-semibold text-gray-900">
-            <SiteMark icon={site.icon} logo={site.logo} />
+          <DocLink href="/" className="flex min-w-0 items-center gap-2.5 font-semibold text-gray-900">
+            <SiteMark icon={site.icon} />
             <span className="truncate">{site.name}</span>
-          </a>
+          </DocLink>
           <div className="ml-auto">
             <Search />
           </div>
@@ -67,6 +69,7 @@ export default async function SiteLayout({ children, params }: Props & { childre
       </div>
 
       <CopyCode />
+      <ContentLinks />
     </div>
   );
 }

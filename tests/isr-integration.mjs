@@ -210,7 +210,6 @@ try {
       assert.match(expired.headers.get("cache-control"), /no-store/);
     }
   }
-  assert.equal((await request("localhost", "/assets/alpha/012345678901234567890123.png")).status, 404);
   console.log("PASS: cached HTML is blocked immediately after expiry on both domains and read endpoints");
 
   await action("deleteSiteAction", "beta", { handle: "beta" });

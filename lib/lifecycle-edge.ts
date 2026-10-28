@@ -1,38 +1,36 @@
 import { getStore, type Store, type StoreOptions } from "@edgeone/pages-blob";
-import { isValidHandle, isValidHost } from "@/lib/rules";
+import { resolveLiveSite, storeReaders, type LiveSite } from "@/lib/lifecycle";
 
-export type LiveSite = {
-  handle: string;
-  createdAt: number;
-  expiresAt?: number;
-  domains: string[];
-};
+// Edge Middleware only: reads through the Pages Blob SDK and never touches the Node file system, unlike lib/blob.ts
 
-type Mapping = { handle: string; siteCreatedAt?: number };
+// Every request runs the gate before the CDN cache, and each Blob read adds a few hundred milliseconds. Live sites
+// are remembered per edge instance for this long, so deleting a site or unbinding a domain takes up to this long to
+// apply. Expiry stays exact because expiresAt is checked on every hit, and missing sites are never remembered
+const LIVE_SITE_TTL_MS = 10_000;
+const MAX_REMEMBERED = 1000;
 
 let store: Store | undefined;
+const remembered = new Map<string, { at: number; site: LiveSite }>();
 
-function remote() {
+function readJSON<T>(key: string) {
   store ??= getStore({ name: "docs", consistency: "strong" } as StoreOptions);
-  return store;
+  return store.get(key, { type: "json" }) as Promise<T | null>;
 }
 
-async function readJSON<T>(key: string) {
-  return (await remote().get(key, { type: "json" })) as T | null;
-}
-
-// Edge Middleware only: depends on Web APIs and the Pages Blob SDK, never the Node file system.
-export async function resolveLiveSiteAtEdge(identifier: string): Promise<LiveSite | null> {
-  const domain = identifier.includes(".");
-  if (domain ? !isValidHost(identifier) : !isValidHandle(identifier)) return null;
-  const mapping = domain ? await readJSON<Mapping>(`domains/${identifier}.json`) : null;
-  const handle = domain ? mapping?.handle : identifier;
-  if (!handle || !isValidHandle(handle)) return null;
-  const site = await readJSON<LiveSite>(`sites/${handle}/site.json`);
-  if (!site || site.handle !== handle || !Number.isFinite(site.createdAt) || !Array.isArray(site.domains)) return null;
-  if (site.expiresAt !== undefined && (!Number.isFinite(site.expiresAt) || site.expiresAt <= Date.now())) return null;
-  if (domain && (!site.domains.includes(identifier) || (mapping?.siteCreatedAt !== undefined && mapping.siteCreatedAt !== site.createdAt))) {
-    return null;
+// source says whether this request read Blob, for the Server-Timing header set by the middleware
+export async function resolveLiveSiteAtEdge(identifier: string): Promise<{ site: LiveSite | null; source: "memory" | "blob" }> {
+  const now = Date.now();
+  const hit = remembered.get(identifier);
+  if (hit && now - hit.at < LIVE_SITE_TTL_MS && (hit.site.expiresAt === undefined || hit.site.expiresAt > now)) {
+    return { site: hit.site, source: "memory" };
   }
-  return site;
+  remembered.delete(identifier);
+
+  const site = await resolveLiveSite(identifier, storeReaders(readJSON));
+  if (site) {
+    // Map keeps insertion order, so the first key is the oldest entry
+    if (remembered.size >= MAX_REMEMBERED) remembered.delete(remembered.keys().next().value!);
+    remembered.set(identifier, { at: Date.now(), site });
+  }
+  return { site, source: "blob" };
 }

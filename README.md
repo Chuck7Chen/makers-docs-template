@@ -38,7 +38,7 @@ Demo site limits (all in `lib/demo.ts`):
 |---|---|
 | Subdomain | 1-32 lowercase letters, digits and hyphens of your choice, or random |
 | Lifetime | 24 hours; at most 100 at a time, the oldest is removed when full |
-| Content | Up to 30 pages, 50 KB each, no image uploads |
+| Content | Up to 30 pages, 50 KB each; images are not supported |
 | Custom domains | Managed in the admin settings |
 | Display | Fixed top banner; not indexed by search engines |
 
@@ -64,10 +64,14 @@ Blob storage credentials are provided by Makers at deploy time; no configuration
 
 - `middleware.ts` rewrites paths by Host and enforces site expiry: the platform domain (`ROOT_DOMAIN` and `www.ROOT_DOMAIN`) serves the home page and admin; `{handle}.ROOT_DOMAIN` is rewritten to `/s/{handle}/...`; any other domain is rewritten to `/s/{domain}/...` and resolved through the domain mapping. Expired sites return 404 and storage errors return 503.
 - Reader pages use Next's Full Route Cache ISR: both layout and page `export const revalidate = false`, so HTML/RSC is generated on first visit and served from cache afterwards. The data layer uses `unstable_cache` with per-tenant cache tags, invalidated precisely by tag on save.
-- Protected responses return `Cache-Control: private, no-store, max-age=0` and `CDN-Cache-Control: no-store` so outer caches can't bypass the expiry check.
+- The gate runs on every request before the CDN cache, so a cached page is never served for an expired or deleted site. Its own 404/503 responses carry `Cache-Control: private, no-store`; pages that pass are served from the ISR/CDN cache.
+- To keep page loads fast, each edge instance remembers live sites for 10 seconds (`lib/lifecycle-edge.ts`). Deleting a site or unbinding a domain takes up to 10 seconds to apply; the 24-hour expiry is still exact.
 - Creating a site issues an edit token stored in an HttpOnly cookie; Blob stores only its SHA-256 hash. Only the browser holding the token can edit the site, with no login.
-- Search runs in the browser: each site serves `/search.json`, downloaded when the search box first opens.
+- Search runs in the browser: each site serves `/search.json`, downloaded when the search box is first reached.
+- Reader pages navigate client-side (`components/doc-link.tsx`): only the page content is fetched, and a link is prefetched when the pointer or keyboard reaches it. Each fetch still passes the gate. A visited page is reused for 30 seconds without a request (`staleTimes` in `next.config.ts`).
 - Site theme colors use the `--brand` CSS variables, separate from the component library's `--primary`.
+- Sites are text only: Markdown images are dropped when rendering, and there is no upload endpoint.
+- Pages Blob has no conditional writes yet (`onlyIfNew` is not enforced), so writes are check-then-write. Two visitors claiming the same subdomain at the same instant, or two pages saved at the same instant, can overwrite each other; "Rebuild search index" in settings repairs the search index.
 
 All data lives in a single Blob store named `docs`:
 
@@ -76,7 +80,6 @@ sites/{handle}/site.json          name, theme, icon, custom domains, nav, versio
 sites/{handle}/pages/{slug}.json  page content
 sites/{handle}/search.json        search index
 sites/{handle}/auth.json          hash of the edit token
-sites/{handle}/assets/{file}      images
 domains/{host}.json               site for a custom domain
 expiry/{expiresAt}_{handle}       expiry marker for demo sites
 ```
@@ -89,17 +92,17 @@ app/
   page.tsx                  platform home and site creation form
   admin/                    admin: my sites, nav tree, editor, settings; actions.ts holds the Server Actions
   s/[site]/                 reader: layout, pages, search.json, sitemap.xml, robots.txt
-  assets/[site]/[file]/     images, shared by all domains
 components/                 platform header, nav tree, editor, search, sidebar, etc.
   ui/                       shadcn/ui components, admin only
 lib/
   blob.ts                   Blob access; falls back to .blob-local/ without credentials
   site.ts                   data types, Blob keys, cached reads with tags
   nav.ts                    nav types and edits, shared by server and nav tree
-  manage.ts                 site creation/deletion, expiry cleanup, search index, images
+  manage.ts                 site creation/deletion, expiry cleanup, search index
   access.ts                 edit token issuing and checks
   invalidation.ts           invalidates site/page/domain tags and internal paths
-  lifecycle.ts              resolveLiveSite: consistent reads and expiry checks
+  keys.ts                   Blob keys
+  lifecycle.ts              resolveLiveSite: site lookup and expiry checks, shared by middleware and pages
   markdown.ts               Markdown rendering and sanitization
   rules.ts                  validation for handles, page paths and domains
   demo.ts                   demo site lifetime and limits

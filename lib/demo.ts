@@ -9,6 +9,3 @@ export const MAX_PAGE_BYTES = 50 * 1024;
 
 // Max sites cleaned up per site creation; a large backlog is cleared over several runs so creation stays fast
 export const MAX_CLEANUP_PER_RUN = 10;
-
-// Image limits kept for existing long-lived sites; new demo sites still cannot upload images or logos
-export const MAX_IMAGE_BYTES = 1024 * 1024;
