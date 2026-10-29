@@ -69,7 +69,7 @@ Blob 存储由 Makers 在部署时自动提供凭证，无需配置。
 - 建站时生成一个编辑令牌，浏览器存在 HttpOnly Cookie 里，Blob 只存它的 SHA-256 哈希。只有持有令牌的浏览器能编辑这个站点，不需要登录。
 - 搜索在浏览器里完成：每个站点输出 `/search.json`，鼠标移到搜索框或打开搜索时才下载。
 - 阅读端页内切换（`components/doc-link.tsx`）：只请求正文部分，鼠标悬停或键盘聚焦到链接时预取。每次请求仍经过门禁；访问过的页面 30 秒内再访问不发请求（`next.config.ts` 的 `staleTimes`）。
-- 平台首页（`/` 和 `/en`）在构建时预渲染，由边缘缓存直接返回，不调用云函数；建站表单的域名后缀在浏览器里按当前地址显示。后台按请求渲染，站内用客户端路由切换，等待时先显示骨架屏（`app/admin/**/loading.tsx`）；打开编辑器是整页跳转，这样浏览器返回键仍会提示未保存的修改。
+- 平台首页（`/` 和 `/en`）在构建时预渲染，由边缘缓存直接返回，不调用云函数；建站表单的域名后缀在浏览器里按当前地址显示。表单提交到 `/api/sites`（Route Handler），不用 Server Action：Action 会提交到当前页面，而这两个页面在 Makers 上是静态文件，请求到不了云函数。后台按请求渲染，站内用客户端路由切换，等待时先显示骨架屏（`app/admin/**/loading.tsx`）；打开编辑器是整页跳转，这样浏览器返回键仍会提示未保存的修改。
 - 客户端路由切换时只渲染变化的部分，布局不会重新执行，所以后台每个页面都自己校验编辑令牌（`lib/access.ts` 的 `loadEditableSite`）。
 - 建站后的过期清理、保存页面后的缓存刷新放在 `after()` 里，响应发出后再执行，不拖慢操作。
 - 站点主题色用 `--brand` 系列 CSS 变量，避开组件库的 `--primary`。
@@ -93,6 +93,7 @@ expiry/{到期时间}_{handle}          体验站点的过期标记
 middleware.ts               按 Host 改写路径
 app/
   page.tsx、en/page.tsx     平台首页（中文、英文），内容在 components/platform-home.tsx
+  api/sites/                建站接口，首页的建站表单提交到这里
   admin/                    后台：我的站点、目录树、编辑器、设置；actions.ts 是后台的 Server Action
   s/[site]/                 阅读端：布局、阅读页、search.json、sitemap.xml、robots.txt
 components/                 平台头部、目录树、编辑器、搜索框、侧栏等

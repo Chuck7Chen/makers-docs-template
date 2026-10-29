@@ -69,7 +69,7 @@ Blob storage credentials are provided by Makers at deploy time; no configuration
 - Creating a site issues an edit token stored in an HttpOnly cookie; Blob stores only its SHA-256 hash. Only the browser holding the token can edit the site, with no login.
 - Search runs in the browser: each site serves `/search.json`, downloaded when the search box is first reached.
 - Reader pages navigate client-side (`components/doc-link.tsx`): only the page content is fetched, and a link is prefetched when the pointer or keyboard reaches it. Each fetch still passes the gate. A visited page is reused for 30 seconds without a request (`staleTimes` in `next.config.ts`).
-- The platform home (`/` and `/en`) is prerendered at build time and served from the edge cache without calling the cloud function; the domain suffix in the creation form is filled in by the browser from the current address. The admin is rendered per request and navigates client-side, showing a skeleton while it waits (`app/admin/**/loading.tsx`). Opening the editor is a full page load, so the browser's back button still warns about unsaved changes.
+- The platform home (`/` and `/en`) is prerendered at build time and served from the edge cache without calling the cloud function; the domain suffix in the creation form is filled in by the browser from the current address. The form posts to a Route Handler (`/api/sites`) rather than a Server Action: an Action posts to the current page, and on Makers these pages are static files, so the request would never reach the cloud function. The admin is rendered per request and navigates client-side, showing a skeleton while it waits (`app/admin/**/loading.tsx`). Opening the editor is a full page load, so the browser's back button still warns about unsaved changes.
 - Client-side navigation only renders the segments that change and never re-runs a layout, so every admin page checks the edit token itself (`loadEditableSite` in `lib/access.ts`).
 - Expiry cleanup after creating a site, and the cache purge after saving a page, run in `after()` once the response is sent, so they don't slow the action down.
 - Site theme colors use the `--brand` CSS variables, separate from the component library's `--primary`.
@@ -93,6 +93,7 @@ expiry/{expiresAt}_{handle}       expiry marker for demo sites
 middleware.ts               rewrites paths by Host
 app/
   page.tsx, en/page.tsx     platform home (Chinese, English); content in components/platform-home.tsx
+  api/sites/                site creation, posted to by the home page form
   admin/                    admin: my sites, nav tree, editor, settings; actions.ts holds the Server Actions
   s/[site]/                 reader: layout, pages, search.json, sitemap.xml, robots.txt
 components/                 platform header, nav tree, editor, search, sidebar, etc.

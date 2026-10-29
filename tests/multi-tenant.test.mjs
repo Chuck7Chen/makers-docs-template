@@ -110,6 +110,18 @@ function form(fields) {
   return result;
 }
 
+// Posts to the site creation route the way the home page form does: same origin unless told otherwise
+async function postSite(f, fields, origin = "http://localhost:3000") {
+  const { POST } = f.load("@/app/api/sites/route");
+  const request = new Request("http://localhost:3000/api/sites", {
+    method: "POST",
+    headers: { host: "localhost:3000", origin },
+    body: form(fields),
+  });
+  const response = await POST(request);
+  return { status: response.status, body: response.status === 403 ? null : await response.json() };
+}
+
 const TTL = 24 * 60 * 60 * 1000;
 
 test("自选和随机前缀均为 24h 体验站，编辑 Cookie 同步到期", async () => {
@@ -143,24 +155,37 @@ test("站点名称允许重复，仅域名前缀检查占用且重试不覆盖�
   const f = fixture();
   await f.manage.createSite("同名文档站", "acme");
   const auth = structuredClone(f.objects.get(f.keys.auth("acme")));
-  const conflict = await f.actions.createSiteAction({}, form({ name: "同名文档站", handle: "ACME" }));
-  assert.match(conflict.error, /域名前缀已被占用/);
-  const english = await f.actions.createSiteAction({}, form({ name: "Same", handle: "acme", language: "en" }));
-  assert.match(english.error, /already taken/);
-  const reserved = await f.actions.createSiteAction({}, form({ name: "Same", handle: "admin", language: "en" }));
-  assert.match(reserved.error, /reserved name/);
+  const conflict = await postSite(f, { name: "同名文档站", handle: "ACME" });
+  assert.equal(conflict.status, 400);
+  assert.match(conflict.body.error, /域名前缀已被占用/);
+  const english = await postSite(f, { name: "Same", handle: "acme", language: "en" });
+  assert.match(english.body.error, /already taken/);
+  const reserved = await postSite(f, { name: "Same", handle: "admin", language: "en" });
+  assert.match(reserved.body.error, /reserved name/);
   assert.deepEqual(f.objects.get(f.keys.auth("acme")), auth);
-  await assert.rejects(f.actions.createSiteAction(conflict, form({ name: "同名文档站", handle: "acme-two" })), /REDIRECT:\/admin\/acme-two$/);
+  assert.deepEqual(await postSite(f, { name: "同名文档站", handle: "acme-two" }), { status: 200, body: { handle: "acme-two" } });
   assert.equal(f.config("acme").name, "同名文档站");
   assert.equal(f.config("acme-two").name, "同名文档站");
   const random = await f.manage.createSite("同名文档站");
   assert.equal(f.config(random).name, "同名文档站");
 });
 
-test("建站 Action 规范化前缀大小写", async () => {
+test("建站接口规范化前缀大小写", async () => {
   const f = fixture();
-  await assert.rejects(f.actions.createSiteAction({}, form({ name: "Acme", handle: " AcMe " })), /REDIRECT:\/admin\/acme$/);
+  assert.deepEqual(await postSite(f, { name: "Acme", handle: " AcMe " }), { status: 200, body: { handle: "acme" } });
   assert.equal(f.config("acme").expiresAt - f.config("acme").createdAt, TTL);
+  assert.ok(f.cookieJar.get("edit_acme"));
+});
+
+test("建站接口拒绝其他网站发起的请求，名称不合法时不建站", async () => {
+  const f = fixture();
+  assert.deepEqual(await postSite(f, { name: "Acme", handle: "acme" }, "https://evil.example"), { status: 403, body: null });
+  assert.deepEqual(await postSite(f, { name: "Acme", handle: "acme" }, "null"), { status: 403, body: null });
+  const blank = await postSite(f, { name: " ", handle: "acme", language: "en" });
+  assert.equal(blank.status, 400);
+  assert.match(blank.body.error, /1 to 40 characters/);
+  assert.equal(f.config("acme"), null);
+  assert.equal(f.cookieJar.size, 0);
 });
 
 test("过期前缀可复用，旧凭证、域名、内容和过期标记不会污染新实例", async () => {

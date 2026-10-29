@@ -1,7 +1,8 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useActionState, useState, useSyncExternalStore } from "react";
-import { createSiteAction, type FormState } from "@/app/admin/actions";
+import type { FormState } from "@/app/admin/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
@@ -18,6 +19,7 @@ const TEXT = {
     hint: "可选，留空随机分配",
     create: "创建站点",
     creating: "正在创建…",
+    failed: "操作失败，请稍后重试",
   },
   en: {
     name: "Site name",
@@ -26,6 +28,7 @@ const TEXT = {
     hint: "Optional, random if blank",
     create: "Create site",
     creating: "Creating…",
+    failed: "Something went wrong. Please try again later.",
   },
 } as const;
 
@@ -38,18 +41,31 @@ function usePlatformDomain() {
 }
 
 export function CreateSiteForm({ language = "zh" }: { language?: "zh" | "en" }) {
-  const [state, formAction, pending] = useActionState(createSiteAction, initialState);
+  const router = useRouter();
+  const text = TEXT[language];
+
+  // Posts to a Route Handler rather than calling a Server Action, which would post to this static page (see app/api/sites/route.ts).
+  // The navigation is started while the action is still pending, so the button stays busy until the admin page shows
+  async function create(_prev: FormState, formData: FormData): Promise<FormState> {
+    const result: { handle?: string; error?: string } = await fetch("/api/sites", { method: "POST", body: formData })
+      .then((response) => response.json())
+      .catch(() => ({}));
+    if (!result.handle) return { error: result.error || text.failed };
+    router.push(`/admin/${result.handle}`);
+    return {};
+  }
+
+  const [state, formAction, pending] = useActionState(create, initialState);
   const [name, setName] = useState("");
   const [handle, setHandle] = useState("");
   const rootDomain = usePlatformDomain();
-  const text = TEXT[language];
 
   return (
     <form
       action={formAction}
       className="space-y-4"
       onReset={(event) => {
-        // React resets the form even when the Server Action returns a validation error; keep the draft so the user can fix it and retry
+        // React resets the form even when the action returns a validation error; keep the draft so the user can fix it and retry
         event.preventDefault();
       }}
     >
