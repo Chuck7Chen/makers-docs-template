@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { PRIVATE_CACHE } from "@/lib/lifecycle";
 import { resolveLiveSiteAtEdge } from "@/lib/lifecycle-edge";
-import { HANDLE_RE } from "@/lib/rules";
+import { HANDLE_RE, isMakersHost } from "@/lib/rules";
 
 // Makers currently only bundles Edge Runtime middleware; the Node runtime produces an empty middleware in production.
 // Keep the matcher as is: Makers falls back to /:path* for patterns with lookaheads such as (?!_next), and treats
@@ -81,7 +81,7 @@ export async function middleware(req: NextRequest) {
   }
 
   const host = getHost(req);
-  if (host === rootDomain || host === `www.${rootDomain}`) {
+  if (host === rootDomain || host === `www.${rootDomain}` || isMakersHost(host)) {
     if (pathname === "/s" || pathname.startsWith("/s/")) return new NextResponse(null, { status: 404, headers: PRIVATE_CACHE });
     // The English home page used to be /?lang=en; it is now the prerendered /en
     if (pathname === "/" && req.nextUrl.searchParams.get("lang") === "en") {

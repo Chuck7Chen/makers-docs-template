@@ -249,7 +249,7 @@ test("体验站添加域名不延长有效期，域名和平台前缀均检查�
   assert.equal((await f.site.resolveSite("docs.acme.test")).handle, "alpha");
   await assert.rejects(f.manage.addSiteDomain("beta", 1, "docs.acme.test"), /已被占用/);
   await assert.rejects(f.manage.addSiteDomain("alpha", 2, "docs.acme.test"), /当前站点/);
-  for (const host of ["localhost", "alpha.localhost", "https://docs.acme.test", "docs.acme.test:3000", "invalid"])
+  for (const host of ["localhost", "alpha.localhost", "demo-abc123.edgeone.cool", "https://docs.acme.test", "docs.acme.test:3000", "invalid"])
     await assert.rejects(f.manage.addSiteDomain("beta", 1, host));
 });
 

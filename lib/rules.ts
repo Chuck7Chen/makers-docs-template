@@ -7,6 +7,14 @@ export const ROOT_DOMAIN = (
 
 export const HANDLE_RE = /^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$/;
 
+// Domains Makers assigns to the project itself (preview links, default domains). They serve the platform, never a
+// tenant: there is no wildcard under them, so sites still live under ROOT_DOMAIN
+const MAKERS_HOST_SUFFIXES = [".edgeone.cool", ".edgeone.app"];
+
+export function isMakersHost(host: string) {
+  return MAKERS_HOST_SUFFIXES.some((suffix) => host.endsWith(suffix));
+}
+
 const RESERVED_HANDLES = new Set(["www", "admin", "api", "app"]);
 const HOST_RE = /^(?=.{4,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{0,62}$/;
 

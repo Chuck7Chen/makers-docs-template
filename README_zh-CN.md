@@ -62,7 +62,7 @@ Blob 存储由 Makers 在部署时自动提供凭证，无需配置。
 
 ### 工作原理
 
-- `middleware.ts` 按 Host 改写路径，并执行过期门禁检查：平台域名（`ROOT_DOMAIN` 和 `www.ROOT_DOMAIN`）进入首页和后台；`{handle}.ROOT_DOMAIN` 改写到 `/s/{handle}/...`；其他域名改写到 `/s/{域名}/...`，再查域名映射找到站点。过期返回 404，存储异常返回 503。
+- `middleware.ts` 按 Host 改写路径，并执行过期门禁检查：平台域名（`ROOT_DOMAIN` 和 `www.ROOT_DOMAIN`）以及 Makers 分配给项目的域名（如预览链接 `*.edgeone.cool`）进入首页和后台；`{handle}.ROOT_DOMAIN` 改写到 `/s/{handle}/...`；其他域名改写到 `/s/{域名}/...`，再查域名映射找到站点。过期返回 404，存储异常返回 503。
 - 阅读端采用 Next Full Route Cache ISR：layout 和 page 都 `export const revalidate = false`，首次访问生成 HTML/RSC，后续缓存命中。数据层使用 `unstable_cache` 加缓存标签隔离租户，保存后按 tag 精确失效。
 - 门禁在每个请求命中 CDN 缓存之前执行，站点过期或删除后不会再返回缓存的页面。门禁自己返回的 404/503 带 `Cache-Control: private, no-store`；通过门禁的页面走 ISR/CDN 缓存。
 - 为了让页面切换更快，每个边缘实例会把有效站点记住 10 秒（`lib/lifecycle-edge.ts`）。删站或解绑域名最多延迟 10 秒生效；24 小时到期仍然精确。

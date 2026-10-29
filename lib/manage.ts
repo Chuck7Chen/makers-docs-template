@@ -10,7 +10,7 @@ import { keys } from "@/lib/keys";
 import type { DomainMapping } from "@/lib/lifecycle";
 import { extractSearchEntry } from "@/lib/markdown";
 import { flattenNav } from "@/lib/nav";
-import { isReservedHandle, isValidHandle, isValidHost, ROOT_DOMAIN } from "@/lib/rules";
+import { isMakersHost, isReservedHandle, isValidHandle, isValidHost, ROOT_DOMAIN } from "@/lib/rules";
 import { SAMPLE_NAV, SAMPLE_PAGES } from "@/lib/samples";
 import { isExpired, type PageDoc, type SearchIndex, type SiteConfig } from "@/lib/site";
 import { DEFAULT_THEME } from "@/lib/theme";
@@ -154,7 +154,7 @@ async function removeOwnedDomain(site: SiteConfig, host: string) {
 
 function checkDomain(host: string) {
   if (!isValidHost(host)) throw new UserError("域名格式不对，例如 docs.example.com，请勿填写协议、端口或路径");
-  if (host === ROOT_DOMAIN || (ROOT_DOMAIN && host.endsWith(`.${ROOT_DOMAIN}`))) {
+  if (host === ROOT_DOMAIN || (ROOT_DOMAIN && host.endsWith(`.${ROOT_DOMAIN}`)) || isMakersHost(host)) {
     throw new UserError("平台域名下的地址不用登记");
   }
 }

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
+import { isMakersHost } from "@/lib/rules";
 
 const initialState: FormState = {};
 
@@ -34,10 +35,14 @@ const TEXT = {
 
 const subscribe = () => () => {};
 
-// The home page is prerendered, so the platform domain is read from the address bar instead of ROOT_DOMAIN;
-// middleware only serves the home page at ROOT_DOMAIN and www.ROOT_DOMAIN. Empty until the page hydrates
+// The home page is prerendered, so the platform domain is read from the address bar instead of ROOT_DOMAIN.
+// On a Makers domain such as a preview link the address isn't ROOT_DOMAIN, so no suffix is shown. Empty until the page hydrates
 function usePlatformDomain() {
-  return useSyncExternalStore(subscribe, () => location.hostname.replace(/^www\./, ""), () => "");
+  return useSyncExternalStore(
+    subscribe,
+    () => (isMakersHost(location.hostname) ? "" : location.hostname.replace(/^www\./, "")),
+    () => "",
+  );
 }
 
 export function CreateSiteForm({ language = "zh" }: { language?: "zh" | "en" }) {

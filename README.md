@@ -62,7 +62,7 @@ Blob storage credentials are provided by Makers at deploy time; no configuration
 
 ### How It Works
 
-- `middleware.ts` rewrites paths by Host and enforces site expiry: the platform domain (`ROOT_DOMAIN` and `www.ROOT_DOMAIN`) serves the home page and admin; `{handle}.ROOT_DOMAIN` is rewritten to `/s/{handle}/...`; any other domain is rewritten to `/s/{domain}/...` and resolved through the domain mapping. Expired sites return 404 and storage errors return 503.
+- `middleware.ts` rewrites paths by Host and enforces site expiry: the platform domain (`ROOT_DOMAIN` and `www.ROOT_DOMAIN`) serves the home page and admin, as do the project's own Makers domains such as preview links (`*.edgeone.cool`); `{handle}.ROOT_DOMAIN` is rewritten to `/s/{handle}/...`; any other domain is rewritten to `/s/{domain}/...` and resolved through the domain mapping. Expired sites return 404 and storage errors return 503.
 - Reader pages use Next's Full Route Cache ISR: both layout and page `export const revalidate = false`, so HTML/RSC is generated on first visit and served from cache afterwards. The data layer uses `unstable_cache` with per-tenant cache tags, invalidated precisely by tag on save.
 - The gate runs on every request before the CDN cache, so a cached page is never served for an expired or deleted site. Its own 404/503 responses carry `Cache-Control: private, no-store`; pages that pass are served from the ISR/CDN cache.
 - To keep page loads fast, each edge instance remembers live sites for 10 seconds (`lib/lifecycle-edge.ts`). Deleting a site or unbinding a domain takes up to 10 seconds to apply; the 24-hour expiry is still exact.
